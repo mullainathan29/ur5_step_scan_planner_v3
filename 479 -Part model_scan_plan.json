@@ -1,0 +1,2619 @@
+{
+  "source_model": "/home/mullai/Downloads/479 -Part model.stp",
+  "source_type": "STEP",
+  "coordinate_frame": "CAD_STEP",
+  "position_unit": "mm",
+  "orientation_unit": "degree",
+  "euler_sequence": "xyz",
+  "scanner_model": "Micro-Epsilon scanCONTROL LLT30x0-200",
+  "scanner_axes": {
+    "+Z": "toward_surface",
+    "+X": "laser_line",
+    "+Y": "travel_direction"
+  },
+  "parameters": {
+    "stand_off_mm": 310.0,
+    "laser_width_mm": 200.0,
+    "overlap_percent": 20.0,
+    "travel_pose_spacing_mm": 5.0,
+    "maximum_incidence_angle_deg": 60.0,
+    "approach_clearance_mm": 120.0,
+    "lead_distance_mm": 20.0,
+    "maximum_scanner_step_mm": 12.0,
+    "maximum_normal_change_deg": 15.0,
+    "maximum_orientation_step_deg": 5.0,
+    "minimum_sensor_range_mm": 200.0,
+    "maximum_sensor_range_mm": 420.0,
+    "laser_coverage_ray_count": 21,
+    "minimum_valid_laser_fraction": 0.2,
+    "include_isometric": true
+  },
+  "plan_statistics": {
+    "coverage_percent_by_triangle_area": 1.9306552706228841,
+    "covered_triangle_count": 193,
+    "triangle_count": 181150,
+    "segment_count": 4,
+    "scan_pose_count": 20,
+    "validation_warnings": [],
+    "views": [
+      {
+        "view_name": "top",
+        "accepted_scan_centres": 9,
+        "rejected_scan_centres": 18,
+        "segments": 0,
+        "covered_triangles": 0
+      },
+      {
+        "view_name": "front",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 20,
+        "segments": 0,
+        "covered_triangles": 0
+      },
+      {
+        "view_name": "right",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 20,
+        "segments": 0,
+        "covered_triangles": 0
+      },
+      {
+        "view_name": "back",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 20,
+        "segments": 0,
+        "covered_triangles": 0
+      },
+      {
+        "view_name": "left",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 20,
+        "segments": 0,
+        "covered_triangles": 0
+      },
+      {
+        "view_name": "iso_top_front_right",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 17,
+        "segments": 1,
+        "covered_triangles": 48
+      },
+      {
+        "view_name": "iso_top_back_right",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 17,
+        "segments": 1,
+        "covered_triangles": 48
+      },
+      {
+        "view_name": "iso_top_back_left",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 17,
+        "segments": 1,
+        "covered_triangles": 50
+      },
+      {
+        "view_name": "iso_top_front_left",
+        "accepted_scan_centres": 7,
+        "rejected_scan_centres": 17,
+        "segments": 1,
+        "covered_triangles": 47
+      }
+    ]
+  },
+  "step_faces": [
+    {
+      "face_index": 0,
+      "geometry_type": "CONE",
+      "area_mm2": 19.99297321730859
+    },
+    {
+      "face_index": 1,
+      "geometry_type": "CONE",
+      "area_mm2": 19.99297321730859
+    },
+    {
+      "face_index": 2,
+      "geometry_type": "SPHERE",
+      "area_mm2": 201.3577404276181
+    },
+    {
+      "face_index": 3,
+      "geometry_type": "TORUS",
+      "area_mm2": 1141.5868257599461
+    },
+    {
+      "face_index": 4,
+      "geometry_type": "TORUS",
+      "area_mm2": 946.4854053602269
+    },
+    {
+      "face_index": 5,
+      "geometry_type": "TORUS",
+      "area_mm2": 946.4854053602278
+    },
+    {
+      "face_index": 6,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 815.5574528997136
+    },
+    {
+      "face_index": 7,
+      "geometry_type": "CONE",
+      "area_mm2": 53.76888062089107
+    },
+    {
+      "face_index": 8,
+      "geometry_type": "CONE",
+      "area_mm2": 53.768880620891565
+    },
+    {
+      "face_index": 9,
+      "geometry_type": "TORUS",
+      "area_mm2": 52.34625487177093
+    },
+    {
+      "face_index": 10,
+      "geometry_type": "TORUS",
+      "area_mm2": 52.34625487177089
+    },
+    {
+      "face_index": 11,
+      "geometry_type": "CONE",
+      "area_mm2": 74.0537351025927
+    },
+    {
+      "face_index": 12,
+      "geometry_type": "CONE",
+      "area_mm2": 74.0537351025927
+    },
+    {
+      "face_index": 13,
+      "geometry_type": "TORUS",
+      "area_mm2": 26.670520809397217
+    },
+    {
+      "face_index": 14,
+      "geometry_type": "TORUS",
+      "area_mm2": 26.67052080939722
+    },
+    {
+      "face_index": 15,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 394.1207289030421
+    },
+    {
+      "face_index": 16,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 394.12072887245887
+    },
+    {
+      "face_index": 17,
+      "geometry_type": "CONE",
+      "area_mm2": 121.17397554254629
+    },
+    {
+      "face_index": 18,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.69491287919415
+    },
+    {
+      "face_index": 19,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694912879194067
+    },
+    {
+      "face_index": 20,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 211.477243857664
+    },
+    {
+      "face_index": 21,
+      "geometry_type": "TORUS",
+      "area_mm2": 182.1478707515827
+    },
+    {
+      "face_index": 22,
+      "geometry_type": "TORUS",
+      "area_mm2": 182.14787076670956
+    },
+    {
+      "face_index": 23,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 374.2579328480694
+    },
+    {
+      "face_index": 24,
+      "geometry_type": "CONE",
+      "area_mm2": 57.334040354216526
+    },
+    {
+      "face_index": 25,
+      "geometry_type": "TORUS",
+      "area_mm2": 121.4170693052952
+    },
+    {
+      "face_index": 26,
+      "geometry_type": "TORUS",
+      "area_mm2": 121.4170693052952
+    },
+    {
+      "face_index": 27,
+      "geometry_type": "TORUS",
+      "area_mm2": 238.28653818582833
+    },
+    {
+      "face_index": 28,
+      "geometry_type": "PLANE",
+      "area_mm2": 4234.094714311166
+    },
+    {
+      "face_index": 29,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.400465866435518
+    },
+    {
+      "face_index": 30,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.400465868175562
+    },
+    {
+      "face_index": 31,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.400465866435518
+    },
+    {
+      "face_index": 32,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 204.77918994652356
+    },
+    {
+      "face_index": 33,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.40046586469547
+    },
+    {
+      "face_index": 34,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.400465866435518
+    },
+    {
+      "face_index": 35,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.40046586469547
+    },
+    {
+      "face_index": 36,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.400465866435518
+    },
+    {
+      "face_index": 37,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 17.40046586469547
+    },
+    {
+      "face_index": 38,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.549101148511474
+    },
+    {
+      "face_index": 39,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.549159080595519
+    },
+    {
+      "face_index": 40,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.54910115058409
+    },
+    {
+      "face_index": 41,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.439153337195121
+    },
+    {
+      "face_index": 42,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.86799755176905e-06
+    },
+    {
+      "face_index": 43,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.21535356992273
+    },
+    {
+      "face_index": 44,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.214392862350262
+    },
+    {
+      "face_index": 45,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.86800539021745e-06
+    },
+    {
+      "face_index": 46,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.43987895611761
+    },
+    {
+      "face_index": 47,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.2045476502607
+    },
+    {
+      "face_index": 48,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694594112102052
+    },
+    {
+      "face_index": 49,
+      "geometry_type": "TORUS",
+      "area_mm2": 1.6886252756074456
+    },
+    {
+      "face_index": 50,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.69467545917854
+    },
+    {
+      "face_index": 51,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.549159080291682
+    },
+    {
+      "face_index": 52,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.549101148035021
+    },
+    {
+      "face_index": 53,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.549159081169785
+    },
+    {
+      "face_index": 54,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.5491011506338
+    },
+    {
+      "face_index": 55,
+      "geometry_type": "TORUS",
+      "area_mm2": 11.549159079025669
+    },
+    {
+      "face_index": 56,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.362905298234814
+    },
+    {
+      "face_index": 57,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499543682473425
+    },
+    {
+      "face_index": 58,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.448003593784275
+    },
+    {
+      "face_index": 59,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.362905298554196
+    },
+    {
+      "face_index": 60,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499543679326209
+    },
+    {
+      "face_index": 61,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.44800359364773
+    },
+    {
+      "face_index": 62,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.64755900998597
+    },
+    {
+      "face_index": 63,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.08615128388332
+    },
+    {
+      "face_index": 64,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.362904906682076
+    },
+    {
+      "face_index": 65,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.08611707861273
+    },
+    {
+      "face_index": 66,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.92606900721818
+    },
+    {
+      "face_index": 67,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696887511339
+    },
+    {
+      "face_index": 68,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.40783794167557
+    },
+    {
+      "face_index": 69,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.362905298554196
+    },
+    {
+      "face_index": 70,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499543683042138
+    },
+    {
+      "face_index": 71,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.448003593901351
+    },
+    {
+      "face_index": 72,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.36290529854874
+    },
+    {
+      "face_index": 73,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499543679286868
+    },
+    {
+      "face_index": 74,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.448003593671439
+    },
+    {
+      "face_index": 75,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.215371896685095
+    },
+    {
+      "face_index": 76,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.08615127288207
+    },
+    {
+      "face_index": 77,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.080574763600479
+    },
+    {
+      "face_index": 78,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.49380905493924
+    },
+    {
+      "face_index": 79,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.080574763646091
+    },
+    {
+      "face_index": 80,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.493662044117755
+    },
+    {
+      "face_index": 81,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.926069028623825
+    },
+    {
+      "face_index": 82,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.390907101169546
+    },
+    {
+      "face_index": 83,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.63127321715969
+    },
+    {
+      "face_index": 84,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.4937811252036
+    },
+    {
+      "face_index": 85,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23113547647989507
+    },
+    {
+      "face_index": 86,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.215371896653014
+    },
+    {
+      "face_index": 87,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.08615130009593
+    },
+    {
+      "face_index": 88,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.080574763665186
+    },
+    {
+      "face_index": 89,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.49380904809749
+    },
+    {
+      "face_index": 90,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.215371896657707
+    },
+    {
+      "face_index": 91,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.08615127998602
+    },
+    {
+      "face_index": 92,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.080574763639872
+    },
+    {
+      "face_index": 93,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.49366204813413
+    },
+    {
+      "face_index": 94,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.867998287170396e-06
+    },
+    {
+      "face_index": 95,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.647559008996762
+    },
+    {
+      "face_index": 96,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.92606902862382
+    },
+    {
+      "face_index": 97,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.39090709835827
+    },
+    {
+      "face_index": 98,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.631273216688435
+    },
+    {
+      "face_index": 99,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.18207028583082
+    },
+    {
+      "face_index": 100,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23111944277722687
+    },
+    {
+      "face_index": 101,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696887511339
+    },
+    {
+      "face_index": 102,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.18220898896862
+    },
+    {
+      "face_index": 103,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23111944277790544
+    },
+    {
+      "face_index": 104,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696882195032
+    },
+    {
+      "face_index": 105,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.18132113786228
+    },
+    {
+      "face_index": 106,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.867997598354783e-06
+    },
+    {
+      "face_index": 107,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.647559011058949
+    },
+    {
+      "face_index": 108,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.926069028623818
+    },
+    {
+      "face_index": 109,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.39090710116954
+    },
+    {
+      "face_index": 110,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.63127321715969
+    },
+    {
+      "face_index": 111,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.182070285286546
+    },
+    {
+      "face_index": 112,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23111944277722687
+    },
+    {
+      "face_index": 113,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696882195032
+    },
+    {
+      "face_index": 114,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.867997598389585e-06
+    },
+    {
+      "face_index": 115,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.647559009996996
+    },
+    {
+      "face_index": 116,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.926069028623825
+    },
+    {
+      "face_index": 117,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.390907101169546
+    },
+    {
+      "face_index": 118,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.63127321715969
+    },
+    {
+      "face_index": 119,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.182208977483782
+    },
+    {
+      "face_index": 120,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23111944277759514
+    },
+    {
+      "face_index": 121,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696882195036
+    },
+    {
+      "face_index": 122,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.4388692850131655
+    },
+    {
+      "face_index": 123,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.204424500823315
+    },
+    {
+      "face_index": 124,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.407837941957006
+    },
+    {
+      "face_index": 125,
+      "geometry_type": "TORUS",
+      "area_mm2": 20.377823018536635
+    },
+    {
+      "face_index": 126,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.438869286148417
+    },
+    {
+      "face_index": 127,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.204424490290243
+    },
+    {
+      "face_index": 128,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.407837941957006
+    },
+    {
+      "face_index": 129,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.438880686610444
+    },
+    {
+      "face_index": 130,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.204424495733875
+    },
+    {
+      "face_index": 131,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.407837941957006
+    },
+    {
+      "face_index": 132,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694641375236728
+    },
+    {
+      "face_index": 133,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694641375226325
+    },
+    {
+      "face_index": 134,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694641375249823
+    },
+    {
+      "face_index": 135,
+      "geometry_type": "TORUS",
+      "area_mm2": 1.6886252756072875
+    },
+    {
+      "face_index": 136,
+      "geometry_type": "TORUS",
+      "area_mm2": 1.6886252756074231
+    },
+    {
+      "face_index": 137,
+      "geometry_type": "TORUS",
+      "area_mm2": 1.6886252744463264
+    },
+    {
+      "face_index": 138,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694567237062
+    },
+    {
+      "face_index": 139,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694567237064902
+    },
+    {
+      "face_index": 140,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.694567234315716
+    },
+    {
+      "face_index": 141,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.407837932372004
+    },
+    {
+      "face_index": 142,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.407837932372004
+    },
+    {
+      "face_index": 143,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.407837932372
+    },
+    {
+      "face_index": 144,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23113547647989507
+    },
+    {
+      "face_index": 145,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23113547647989494
+    },
+    {
+      "face_index": 146,
+      "geometry_type": "TORUS",
+      "area_mm2": 0.23113547647989507
+    },
+    {
+      "face_index": 147,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.181445161614075
+    },
+    {
+      "face_index": 148,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.181445161400976
+    },
+    {
+      "face_index": 149,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 31.181446798411248
+    },
+    {
+      "face_index": 150,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.215770720208635
+    },
+    {
+      "face_index": 151,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.868005328851195e-06
+    },
+    {
+      "face_index": 152,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.43897542860478
+    },
+    {
+      "face_index": 153,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.08612029679728
+    },
+    {
+      "face_index": 154,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.215770720234843
+    },
+    {
+      "face_index": 155,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.86800532891236e-06
+    },
+    {
+      "face_index": 156,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.438976081516062
+    },
+    {
+      "face_index": 157,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.08611890852737
+    },
+    {
+      "face_index": 158,
+      "geometry_type": "TORUS",
+      "area_mm2": 31.21577072030881
+    },
+    {
+      "face_index": 159,
+      "geometry_type": "TORUS",
+      "area_mm2": 9.868005390323383e-06
+    },
+    {
+      "face_index": 160,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 5.438588796676201
+    },
+    {
+      "face_index": 161,
+      "geometry_type": "PLANE",
+      "area_mm2": 43.086122040072254
+    },
+    {
+      "face_index": 162,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 163,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735595433
+    },
+    {
+      "face_index": 164,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 165,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735595433
+    },
+    {
+      "face_index": 166,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 167,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735595433
+    },
+    {
+      "face_index": 168,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 169,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735595433
+    },
+    {
+      "face_index": 170,
+      "geometry_type": "PLANE",
+      "area_mm2": 934.2719744195285
+    },
+    {
+      "face_index": 171,
+      "geometry_type": "TORUS",
+      "area_mm2": 604.1900680969186
+    },
+    {
+      "face_index": 172,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 103.41441066035713
+    },
+    {
+      "face_index": 173,
+      "geometry_type": "TORUS",
+      "area_mm2": 22.931053384767516
+    },
+    {
+      "face_index": 174,
+      "geometry_type": "CONE",
+      "area_mm2": 27.379201533068077
+    },
+    {
+      "face_index": 175,
+      "geometry_type": "TORUS",
+      "area_mm2": 421.08362859426506
+    },
+    {
+      "face_index": 176,
+      "geometry_type": "TORUS",
+      "area_mm2": 421.083628594265
+    },
+    {
+      "face_index": 177,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 74.10207442601907
+    },
+    {
+      "face_index": 178,
+      "geometry_type": "TORUS",
+      "area_mm2": 20.040628213464775
+    },
+    {
+      "face_index": 179,
+      "geometry_type": "TORUS",
+      "area_mm2": 20.040628213464785
+    },
+    {
+      "face_index": 180,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 842.8474333042765
+    },
+    {
+      "face_index": 181,
+      "geometry_type": "TORUS",
+      "area_mm2": 8.870522948431578
+    },
+    {
+      "face_index": 182,
+      "geometry_type": "CONE",
+      "area_mm2": 79.22169859655575
+    },
+    {
+      "face_index": 183,
+      "geometry_type": "TORUS",
+      "area_mm2": 30.8172604780985
+    },
+    {
+      "face_index": 184,
+      "geometry_type": "PLANE",
+      "area_mm2": 253.65461416587357
+    },
+    {
+      "face_index": 185,
+      "geometry_type": "TORUS",
+      "area_mm2": 139.6746750366433
+    },
+    {
+      "face_index": 186,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 1094.9645982514153
+    },
+    {
+      "face_index": 187,
+      "geometry_type": "CONE",
+      "area_mm2": 77.91048773884499
+    },
+    {
+      "face_index": 188,
+      "geometry_type": "TORUS",
+      "area_mm2": 52.5444576773254
+    },
+    {
+      "face_index": 189,
+      "geometry_type": "PLANE",
+      "area_mm2": 101.99956748650649
+    },
+    {
+      "face_index": 190,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 223.55573324641438
+    },
+    {
+      "face_index": 191,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 86.46516292620674
+    },
+    {
+      "face_index": 192,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 86.4651629255788
+    },
+    {
+      "face_index": 193,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 86.46516292433004
+    },
+    {
+      "face_index": 194,
+      "geometry_type": "CONE",
+      "area_mm2": 16.324194275721393
+    },
+    {
+      "face_index": 195,
+      "geometry_type": "CONE",
+      "area_mm2": 16.324194275723112
+    },
+    {
+      "face_index": 196,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 86.46516292433463
+    },
+    {
+      "face_index": 197,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 223.55573321814
+    },
+    {
+      "face_index": 198,
+      "geometry_type": "TORUS",
+      "area_mm2": 81.71728022479648
+    },
+    {
+      "face_index": 199,
+      "geometry_type": "TORUS",
+      "area_mm2": 81.71728024741599
+    },
+    {
+      "face_index": 200,
+      "geometry_type": "TORUS",
+      "area_mm2": 52.5444576773254
+    },
+    {
+      "face_index": 201,
+      "geometry_type": "CONE",
+      "area_mm2": 77.91048773884499
+    },
+    {
+      "face_index": 202,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 1094.9645982612017
+    },
+    {
+      "face_index": 203,
+      "geometry_type": "TORUS",
+      "area_mm2": 139.67467505012817
+    },
+    {
+      "face_index": 204,
+      "geometry_type": "TORUS",
+      "area_mm2": 30.817260478098497
+    },
+    {
+      "face_index": 205,
+      "geometry_type": "CONE",
+      "area_mm2": 79.22169859655575
+    },
+    {
+      "face_index": 206,
+      "geometry_type": "TORUS",
+      "area_mm2": 8.870522948431582
+    },
+    {
+      "face_index": 207,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 842.8474332469315
+    },
+    {
+      "face_index": 208,
+      "geometry_type": "TORUS",
+      "area_mm2": 19.728394413929678
+    },
+    {
+      "face_index": 209,
+      "geometry_type": "TORUS",
+      "area_mm2": 19.728394387939474
+    },
+    {
+      "face_index": 210,
+      "geometry_type": "CONE",
+      "area_mm2": 80.11948296204505
+    },
+    {
+      "face_index": 211,
+      "geometry_type": "CONE",
+      "area_mm2": 80.11948296204505
+    },
+    {
+      "face_index": 212,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 74.10207442027638
+    },
+    {
+      "face_index": 213,
+      "geometry_type": "CONE",
+      "area_mm2": 27.379201533068073
+    },
+    {
+      "face_index": 214,
+      "geometry_type": "TORUS",
+      "area_mm2": 22.931053384767516
+    },
+    {
+      "face_index": 215,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 103.41441069240592
+    },
+    {
+      "face_index": 216,
+      "geometry_type": "TORUS",
+      "area_mm2": 604.1900680735629
+    },
+    {
+      "face_index": 217,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.080565148936945
+    },
+    {
+      "face_index": 218,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.0805651488596455
+    },
+    {
+      "face_index": 219,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.080565149083411
+    },
+    {
+      "face_index": 220,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735689054
+    },
+    {
+      "face_index": 221,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 222,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735689054
+    },
+    {
+      "face_index": 223,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 224,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735689054
+    },
+    {
+      "face_index": 225,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 226,
+      "geometry_type": "CONE",
+      "area_mm2": 30.144960735689054
+    },
+    {
+      "face_index": 227,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 167.83173353640078
+    },
+    {
+      "face_index": 228,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.3909084567107
+    },
+    {
+      "face_index": 229,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.63127321857339
+    },
+    {
+      "face_index": 230,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.926069009056075
+    },
+    {
+      "face_index": 231,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.647607215819017
+    },
+    {
+      "face_index": 232,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.39090845671069
+    },
+    {
+      "face_index": 233,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.63127322045838
+    },
+    {
+      "face_index": 234,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.926069010887346
+    },
+    {
+      "face_index": 235,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.64760721327399
+    },
+    {
+      "face_index": 236,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.39090845671069
+    },
+    {
+      "face_index": 237,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.63127322045838
+    },
+    {
+      "face_index": 238,
+      "geometry_type": "TORUS",
+      "area_mm2": 23.926069010887346
+    },
+    {
+      "face_index": 239,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.647607210102722
+    },
+    {
+      "face_index": 240,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.49371541014185
+    },
+    {
+      "face_index": 241,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.493715529969506
+    },
+    {
+      "face_index": 242,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 35.493715522329026
+    },
+    {
+      "face_index": 243,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696882659546
+    },
+    {
+      "face_index": 244,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696887975759
+    },
+    {
+      "face_index": 245,
+      "geometry_type": "PLANE",
+      "area_mm2": 7.715696887975759
+    },
+    {
+      "face_index": 246,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.204723048644771
+    },
+    {
+      "face_index": 247,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.204728816052793
+    },
+    {
+      "face_index": 248,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.204723060408844
+    },
+    {
+      "face_index": 249,
+      "geometry_type": "PLANE",
+      "area_mm2": 291.93363763363294
+    },
+    {
+      "face_index": 250,
+      "geometry_type": "TORUS",
+      "area_mm2": 20.37782301853664
+    },
+    {
+      "face_index": 251,
+      "geometry_type": "PLANE",
+      "area_mm2": 291.933443345574
+    },
+    {
+      "face_index": 252,
+      "geometry_type": "TORUS",
+      "area_mm2": 20.37782301853662
+    },
+    {
+      "face_index": 253,
+      "geometry_type": "TORUS",
+      "area_mm2": 846.3518154296247
+    },
+    {
+      "face_index": 254,
+      "geometry_type": "PLANE",
+      "area_mm2": 291.9334444851771
+    },
+    {
+      "face_index": 255,
+      "geometry_type": "TORUS",
+      "area_mm2": 20.377823018564637
+    },
+    {
+      "face_index": 256,
+      "geometry_type": "TORUS",
+      "area_mm2": 846.3518153846157
+    },
+    {
+      "face_index": 257,
+      "geometry_type": "TORUS",
+      "area_mm2": 38.390907107600746
+    },
+    {
+      "face_index": 258,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 62.631273215142045
+    },
+    {
+      "face_index": 259,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 6.080541921411217
+    },
+    {
+      "face_index": 260,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.36289486727806
+    },
+    {
+      "face_index": 261,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499445158450273
+    },
+    {
+      "face_index": 262,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.447962942052307
+    },
+    {
+      "face_index": 263,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.36289486727806
+    },
+    {
+      "face_index": 264,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499445156224533
+    },
+    {
+      "face_index": 265,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.447962941889585
+    },
+    {
+      "face_index": 266,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499445157062171
+    },
+    {
+      "face_index": 267,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.447962941955483
+    },
+    {
+      "face_index": 268,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 37.407837941957006
+    },
+    {
+      "face_index": 269,
+      "geometry_type": "PLANE",
+      "area_mm2": 291.93341272064487
+    },
+    {
+      "face_index": 270,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.647609320206435
+    },
+    {
+      "face_index": 271,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 63.36289486759227
+    },
+    {
+      "face_index": 272,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 14.499445156378382
+    },
+    {
+      "face_index": 273,
+      "geometry_type": "BSPLINE",
+      "area_mm2": 9.447962941964022
+    },
+    {
+      "face_index": 274,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 9.204424492494422
+    },
+    {
+      "face_index": 275,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000523592
+    },
+    {
+      "face_index": 276,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000570275
+    },
+    {
+      "face_index": 277,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000523592
+    },
+    {
+      "face_index": 278,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000570277
+    },
+    {
+      "face_index": 279,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000523592
+    },
+    {
+      "face_index": 280,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000570275
+    },
+    {
+      "face_index": 281,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000523592
+    },
+    {
+      "face_index": 282,
+      "geometry_type": "CONE",
+      "area_mm2": 14.517120000570275
+    },
+    {
+      "face_index": 283,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.4391558878
+    },
+    {
+      "face_index": 284,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.23649221134522
+    },
+    {
+      "face_index": 285,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 204.78056898708007
+    },
+    {
+      "face_index": 286,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.236492211345215
+    },
+    {
+      "face_index": 287,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.439155879512164
+    },
+    {
+      "face_index": 288,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 129.57432573489544
+    },
+    {
+      "face_index": 289,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.4391558878
+    },
+    {
+      "face_index": 290,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.23649221134522
+    },
+    {
+      "face_index": 291,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 204.7813607478348
+    },
+    {
+      "face_index": 292,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.236492211345215
+    },
+    {
+      "face_index": 293,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.439155879512164
+    },
+    {
+      "face_index": 294,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 129.57432573441866
+    },
+    {
+      "face_index": 295,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.43915588780001
+    },
+    {
+      "face_index": 296,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.236492211345215
+    },
+    {
+      "face_index": 297,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.236492211345215
+    },
+    {
+      "face_index": 298,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.43915587951215
+    },
+    {
+      "face_index": 299,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 129.5743257349732
+    },
+    {
+      "face_index": 300,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.43915587971218
+    },
+    {
+      "face_index": 301,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.236492202227
+    },
+    {
+      "face_index": 302,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 204.7813607121599
+    },
+    {
+      "face_index": 303,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 18.236492211345215
+    },
+    {
+      "face_index": 304,
+      "geometry_type": "PLANE",
+      "area_mm2": 40.43915587951215
+    },
+    {
+      "face_index": 305,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 129.5743257305332
+    },
+    {
+      "face_index": 306,
+      "geometry_type": "TORUS",
+      "area_mm2": 238.2865382519949
+    },
+    {
+      "face_index": 307,
+      "geometry_type": "CONE",
+      "area_mm2": 57.33404038831391
+    },
+    {
+      "face_index": 308,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 374.25793288435506
+    },
+    {
+      "face_index": 309,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 211.47724384253732
+    },
+    {
+      "face_index": 310,
+      "geometry_type": "CONE",
+      "area_mm2": 121.17397551300516
+    },
+    {
+      "face_index": 311,
+      "geometry_type": "PLANE",
+      "area_mm2": 346.1478571703922
+    },
+    {
+      "face_index": 312,
+      "geometry_type": "CYLINDER",
+      "area_mm2": 815.5574528997134
+    },
+    {
+      "face_index": 313,
+      "geometry_type": "TORUS",
+      "area_mm2": 1141.5868257599466
+    },
+    {
+      "face_index": 314,
+      "geometry_type": "SPHERE",
+      "area_mm2": 201.3577404276181
+    }
+  ],
+  "trajectory": [
+    {
+      "segment_id": 0,
+      "pose_id": 0,
+      "view_name": "iso_top_front_right",
+      "motion_type": "approach",
+      "scan_enabled": false,
+      "surface_x": 16.875873941649388,
+      "surface_y": -32.06561547530998,
+      "surface_z": 30.055302474820735,
+      "normal_x": 0.7085340756839362,
+      "normal_y": -0.7056765161454768,
+      "normal_z": -0.00034373753483393207,
+      "x": 272.9530832788654,
+      "y": -316.10742615342105,
+      "z": 221.01621344708298,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 1,
+      "view_name": "iso_top_front_right",
+      "motion_type": "lead_in",
+      "scan_enabled": false,
+      "surface_x": 16.875873941649388,
+      "surface_y": -32.06561547530998,
+      "surface_z": 30.055302474820735,
+      "normal_x": 0.7085340756839362,
+      "normal_y": -0.7056765161454768,
+      "normal_z": -0.00034373753483393207,
+      "x": 197.05841944451595,
+      "y": -240.21276231907157,
+      "z": 167.35058195967596,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 2,
+      "view_name": "iso_top_front_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 16.875873941649388,
+      "surface_y": -32.06561547530998,
+      "surface_z": 30.055302474820735,
+      "normal_x": 0.7085340756839362,
+      "normal_y": -0.7056765161454768,
+      "normal_z": -0.00034373753483393207,
+      "x": 212.9370888470522,
+      "y": -228.1268303807128,
+      "z": 168.6915171506222,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 3,
+      "view_name": "iso_top_front_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 20.890919489369423,
+      "surface_y": -29.0095932111646,
+      "surface_z": 30.39436840860293,
+      "normal_x": 0.5910893690686801,
+      "normal_y": -0.80660604159201,
+      "normal_z": -0.00022680665385145388,
+      "x": 216.95213439477223,
+      "y": -225.0708081165674,
+      "z": 169.03058308440438,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 4,
+      "view_name": "iso_top_front_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 24.748099087676053,
+      "surface_y": -25.795704997605696,
+      "surface_z": 30.621806258965194,
+      "normal_x": 0.6956462657639519,
+      "normal_y": -0.7183840900130645,
+      "normal_z": 0.0007564025188983712,
+      "x": 220.80931399307886,
+      "y": -221.8569199030085,
+      "z": 169.25802093476665,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 5,
+      "view_name": "iso_top_front_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 28.110527083579086,
+      "surface_y": -22.08706518164331,
+      "surface_z": 30.499401896041547,
+      "normal_x": 0.7707051122030952,
+      "normal_y": -0.6371917002442755,
+      "normal_z": 0.0006059404458601003,
+      "x": 224.1717419889819,
+      "y": -218.14828008704612,
+      "z": 169.135616571843,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 6,
+      "view_name": "iso_top_front_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 31.067608117847783,
+      "surface_y": -17.973078404046475,
+      "surface_z": 30.090373947629928,
+      "normal_x": 0.7786031029057635,
+      "normal_y": -0.6275166971339248,
+      "normal_z": -5.443939123418495e-05,
+      "x": 227.1288230232506,
+      "y": -214.03429330944928,
+      "z": 168.72658862343138,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 7,
+      "view_name": "iso_top_front_right",
+      "motion_type": "lead_out",
+      "scan_enabled": false,
+      "surface_x": 31.067608117847783,
+      "surface_y": -17.973078404046475,
+      "surface_z": 30.090373947629928,
+      "normal_x": 0.7786031029057635,
+      "normal_y": -0.6275166971339248,
+      "normal_z": -5.443939123418495e-05,
+      "x": 238.76408641195636,
+      "y": -197.8469385564775,
+      "z": 167.11718128627732,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 0,
+      "pose_id": 8,
+      "view_name": "iso_top_front_right",
+      "motion_type": "retract",
+      "scan_enabled": false,
+      "surface_x": 31.067608117847783,
+      "surface_y": -17.973078404046475,
+      "surface_z": 30.090373947629928,
+      "normal_x": 0.7786031029057635,
+      "normal_y": -0.6275166971339248,
+      "normal_z": -5.443939123418495e-05,
+      "x": 314.65875024630583,
+      "y": -273.741602390827,
+      "z": 220.78281277368433,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 135.0,
+      "qx": 0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": 0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": -0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": -0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 0,
+      "view_name": "iso_top_back_right",
+      "motion_type": "approach",
+      "scan_enabled": false,
+      "surface_x": 32.06560474078708,
+      "surface_y": 16.875863207126486,
+      "surface_z": 30.05534504695055,
+      "normal_x": 0.7056757875825707,
+      "normal_y": 0.7085347981648927,
+      "normal_z": -0.0003501558988957257,
+      "x": 316.10736684803305,
+      "y": 272.95303805506717,
+      "z": 221.01622665301852,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 1,
+      "view_name": "iso_top_back_right",
+      "motion_type": "lead_in",
+      "scan_enabled": false,
+      "surface_x": 32.06560474078708,
+      "surface_y": 16.875863207126486,
+      "surface_z": 30.05534504695055,
+      "normal_x": 0.7056757875825707,
+      "normal_y": 0.7085347981648927,
+      "normal_z": -0.0003501558988957257,
+      "x": 240.21270301368358,
+      "y": 197.05837422071772,
+      "z": 167.3505951656115,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 2,
+      "view_name": "iso_top_back_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 32.06560474078708,
+      "surface_y": 16.875863207126486,
+      "surface_z": 30.05534504695055,
+      "normal_x": 0.7056757875825707,
+      "normal_y": 0.7085347981648927,
+      "normal_z": -0.0003501558988957257,
+      "x": 228.1268196461899,
+      "y": 212.9370781125293,
+      "z": 168.691559722752,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 3,
+      "view_name": "iso_top_back_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 29.009593219307988,
+      "surface_y": 20.89091949751281,
+      "surface_z": 30.39441857694493,
+      "normal_x": 0.8066060416979538,
+      "normal_y": 0.5910893689241126,
+      "normal_z": -0.00022680664317268308,
+      "x": 225.0708081247108,
+      "y": 216.95213440291562,
+      "z": 169.03063325274638,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 4,
+      "view_name": "iso_top_back_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 25.79570497077941,
+      "surface_y": 24.748099060849768,
+      "surface_z": 30.62185640257985,
+      "normal_x": 0.7183840900130569,
+      "normal_y": 0.6956462657639577,
+      "normal_z": 0.0007564025207536469,
+      "x": 221.85691987618222,
+      "y": 220.80931396625257,
+      "z": 169.2580710783813,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 5,
+      "view_name": "iso_top_back_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 22.08706515997011,
+      "surface_y": 28.110527061905884,
+      "surface_z": 30.49945204330004,
+      "normal_x": 0.6371917002442511,
+      "normal_y": 0.7707051122030716,
+      "normal_z": 0.0006059405015280258,
+      "x": 218.14828006537292,
+      "y": 224.1717419673087,
+      "z": 169.1356667191015,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 6,
+      "view_name": "iso_top_back_right",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": 17.973080393523333,
+      "surface_y": 31.06761010732464,
+      "surface_z": 30.09042551698616,
+      "normal_x": 0.6275164689508549,
+      "normal_y": 0.778603286883478,
+      "normal_z": -5.3382535646780354e-05,
+      "x": 214.03429529892614,
+      "y": 227.12882501272745,
+      "z": 168.7266401927876,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 7,
+      "view_name": "iso_top_back_right",
+      "motion_type": "lead_out",
+      "scan_enabled": false,
+      "surface_x": 17.973080393523333,
+      "surface_y": 31.06761010732464,
+      "surface_z": 30.09042551698616,
+      "normal_x": 0.6275164689508549,
+      "normal_y": 0.778603286883478,
+      "normal_z": -5.3382535646780354e-05,
+      "x": 197.84694663706233,
+      "y": 238.764097624498,
+      "z": 167.11723827001083,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 1,
+      "pose_id": 8,
+      "view_name": "iso_top_back_right",
+      "motion_type": "retract",
+      "scan_enabled": false,
+      "surface_x": 17.973080393523333,
+      "surface_y": 31.06761010732464,
+      "surface_z": 30.09042551698616,
+      "normal_x": 0.6275164689508549,
+      "normal_y": 0.778603286883478,
+      "normal_z": -5.3382535646780354e-05,
+      "x": 273.74161047141183,
+      "y": 314.6587614588475,
+      "z": 220.78286975741784,
+      "roll_deg": -180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -135.0,
+      "qx": -0.3255299711099883,
+      "qy": 0.7858988712126556,
+      "qz": -0.20118858644529625,
+      "qw": -0.485712213990906,
+      "rx": 0.7922029076588728,
+      "ry": -1.9125470038214512,
+      "rz": 0.4896083227798739
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 0,
+      "view_name": "iso_top_back_left",
+      "motion_type": "approach",
+      "scan_enabled": false,
+      "surface_x": -16.875873941605334,
+      "surface_y": 32.06561547522671,
+      "surface_z": 30.05530247477577,
+      "normal_x": -0.708534074667425,
+      "normal_y": 0.7056765171660726,
+      "normal_z": -0.00034373759983896094,
+      "x": -272.9530832785956,
+      "y": 316.1074261530199,
+      "z": 221.01621344684574,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 1,
+      "view_name": "iso_top_back_left",
+      "motion_type": "lead_in",
+      "scan_enabled": false,
+      "surface_x": -16.875873941605334,
+      "surface_y": 32.06561547522671,
+      "surface_z": 30.05530247477577,
+      "normal_x": -0.708534074667425,
+      "normal_y": 0.7056765171660726,
+      "normal_z": -0.00034373759983896094,
+      "x": -197.05841944424614,
+      "y": 240.2127623186704,
+      "z": 167.35058195943873,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 2,
+      "view_name": "iso_top_back_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -16.875873941605334,
+      "surface_y": 32.06561547522671,
+      "surface_z": 30.05530247477577,
+      "normal_x": -0.708534074667425,
+      "normal_y": 0.7056765171660726,
+      "normal_z": -0.00034373759983896094,
+      "x": -212.93708884700814,
+      "y": 228.1268303806295,
+      "z": 168.69151715057723,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 3,
+      "view_name": "iso_top_back_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -20.890919489395685,
+      "surface_y": 29.00959321115164,
+      "surface_z": 30.394368408607704,
+      "normal_x": -0.5910893690641081,
+      "normal_y": 0.8066060415953599,
+      "normal_z": -0.00022680665582159904,
+      "x": -216.9521343947985,
+      "y": 225.07080811655445,
+      "z": 169.03058308440916,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 4,
+      "view_name": "iso_top_back_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -24.748099087692992,
+      "surface_y": 25.795704997583414,
+      "surface_z": 30.621806258963318,
+      "normal_x": -0.6956462657641856,
+      "normal_y": 0.7183840900128361,
+      "normal_z": 0.0007564025207322293,
+      "x": -220.8093139930958,
+      "y": 221.85691990298622,
+      "z": 169.25802093476477,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 5,
+      "view_name": "iso_top_back_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -28.110527083541342,
+      "surface_y": 22.087065181566345,
+      "surface_z": 30.499401896001018,
+      "normal_x": -0.7707051122030815,
+      "normal_y": 0.6371917002442596,
+      "normal_z": 0.0006059404799460552,
+      "x": -224.17174198894415,
+      "y": 218.14828008696915,
+      "z": 169.13561657180247,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 6,
+      "view_name": "iso_top_back_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -31.06761010604839,
+      "surface_y": 17.973080392207862,
+      "surface_z": 30.090375353486195,
+      "normal_x": -0.7786032870115928,
+      "normal_y": 0.6275164687919224,
+      "normal_z": -5.3382205410596415e-05,
+      "x": -227.1288250114512,
+      "y": 214.03429529761067,
+      "z": 168.72659002928765,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 7,
+      "view_name": "iso_top_back_left",
+      "motion_type": "lead_out",
+      "scan_enabled": false,
+      "surface_x": -31.06761010604839,
+      "surface_y": 17.973080392207862,
+      "surface_z": 30.090375353486195,
+      "normal_x": -0.7786032870115928,
+      "normal_y": 0.6275164687919224,
+      "normal_z": -5.3382205410596415e-05,
+      "x": -238.7640975181495,
+      "y": 197.8469465663548,
+      "z": 167.11718804482874,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 2,
+      "pose_id": 8,
+      "view_name": "iso_top_back_left",
+      "motion_type": "retract",
+      "scan_enabled": false,
+      "surface_x": -31.06761010604839,
+      "surface_y": 17.973080392207862,
+      "surface_z": 30.090375353486195,
+      "normal_x": -0.7786032870115928,
+      "normal_y": 0.6275164687919224,
+      "normal_z": -5.3382205410596415e-05,
+      "x": -314.65876135249897,
+      "y": 273.7416104007043,
+      "z": 220.78281953223575,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": -45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": -0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": 0.20118858644529625,
+      "rx": 2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": 1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 0,
+      "view_name": "iso_top_front_left",
+      "motion_type": "approach",
+      "scan_enabled": false,
+      "surface_x": -32.065604740413846,
+      "surface_y": -16.87586320679236,
+      "surface_z": 30.055345046700438,
+      "normal_x": -0.705675788376888,
+      "normal_y": -0.7085347973736622,
+      "normal_z": -0.0003501561378432439,
+      "x": -316.10736684604024,
+      "y": -272.953038053583,
+      "z": 221.01622665178922,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 1,
+      "view_name": "iso_top_front_left",
+      "motion_type": "lead_in",
+      "scan_enabled": false,
+      "surface_x": -32.065604740413846,
+      "surface_y": -16.87586320679236,
+      "surface_z": 30.055345046700438,
+      "normal_x": -0.705675788376888,
+      "normal_y": -0.7085347973736622,
+      "normal_z": -0.0003501561378432439,
+      "x": -240.21270301169073,
+      "y": -197.05837421923354,
+      "z": 167.3505951643822,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 2,
+      "view_name": "iso_top_front_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -32.065604740413846,
+      "surface_y": -16.87586320679236,
+      "surface_z": 30.055345046700438,
+      "normal_x": -0.705675788376888,
+      "normal_y": -0.7085347973736622,
+      "normal_z": -0.0003501561378432439,
+      "x": -228.12681964581665,
+      "y": -212.93707811219517,
+      "z": 168.6915597225019,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 3,
+      "view_name": "iso_top_front_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -29.009593219292924,
+      "surface_y": -20.89091949753697,
+      "surface_z": 30.394418576948112,
+      "normal_x": -0.806606041629079,
+      "normal_y": -0.5910893690180963,
+      "normal_z": -0.00022680665214330046,
+      "x": -225.07080812469573,
+      "y": -216.95213440293978,
+      "z": 169.03063325274957,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 4,
+      "view_name": "iso_top_front_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -25.795704970760312,
+      "surface_y": -24.748099060869777,
+      "surface_z": 30.621856402580136,
+      "normal_x": -0.7183840900128361,
+      "normal_y": -0.6956462657641856,
+      "normal_z": 0.0007564025207322293,
+      "x": -221.85691987616312,
+      "y": -220.80931396627258,
+      "z": 169.2580710783816,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 5,
+      "view_name": "iso_top_front_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -22.087065159952033,
+      "surface_y": -28.11052706192703,
+      "surface_z": 30.49945204330112,
+      "normal_x": -0.6371917002442535,
+      "normal_y": -0.7707051122030713,
+      "normal_z": 0.0006059404994294316,
+      "x": -218.14828006535484,
+      "y": -224.17174196732984,
+      "z": 169.13566671910257,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 6,
+      "view_name": "iso_top_front_left",
+      "motion_type": "scan",
+      "scan_enabled": true,
+      "surface_x": -17.97308039349656,
+      "surface_y": -31.067610107336975,
+      "surface_z": 30.0904255169811,
+      "normal_x": -0.6275164688230179,
+      "normal_y": -0.7786032869865089,
+      "normal_z": -5.338253027566232e-05,
+      "x": -214.03429529889937,
+      "y": -227.12882501273978,
+      "z": 168.72664019278255,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 7,
+      "view_name": "iso_top_front_left",
+      "motion_type": "lead_out",
+      "scan_enabled": false,
+      "surface_x": -17.97308039349656,
+      "surface_y": -31.067610107336975,
+      "surface_z": 30.0904255169811,
+      "normal_x": -0.6275164688230179,
+      "normal_y": -0.7786032869865089,
+      "normal_z": -5.338253027566232e-05,
+      "x": -197.84694663700898,
+      "y": -238.76409762447017,
+      "z": 167.11723826998238,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    },
+    {
+      "segment_id": 3,
+      "pose_id": 8,
+      "view_name": "iso_top_front_left",
+      "motion_type": "retract",
+      "scan_enabled": false,
+      "surface_x": -17.97308039349656,
+      "surface_y": -31.067610107336975,
+      "surface_z": 30.0904255169811,
+      "normal_x": -0.6275164688230179,
+      "normal_y": -0.7786032869865089,
+      "normal_z": -5.338253027566232e-05,
+      "x": -273.74161047135846,
+      "y": -314.65876145881964,
+      "z": 220.7828697573894,
+      "roll_deg": 180.0,
+      "pitch_deg": -63.43494880828885,
+      "yaw_deg": 45.000000000000014,
+      "qx": 0.7858988712126556,
+      "qy": 0.3255299711099883,
+      "qz": 0.485712213990906,
+      "qw": -0.20118858644529625,
+      "rx": -2.1954649271994215,
+      "ry": -0.9093913485604602,
+      "rz": -1.3568719457301115
+    }
+  ]
+}

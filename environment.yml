@@ -1,0 +1,14 @@
+name: ur5_step_scan_v3
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - trimesh
+  - cadquery
+  - pyside6
+  - pyvista
+  - pyvistaqt
+  - rtree
+  - pip
