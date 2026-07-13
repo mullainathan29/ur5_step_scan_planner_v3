@@ -19,7 +19,8 @@ from coverage import CoverageSettings, validate_coverage
 from planners.view_based import ViewSweepSettings, generate_preview_sweeps
 from recovery import (
     RecoveryCandidate, candidate_accessible, generate_bottom_sweep,
-    generate_hole_recovery_candidates, generate_lower_diagonal_sweeps,
+    generate_focused_conical_orbits, generate_hole_recovery_candidates,
+    generate_lower_diagonal_sweeps,
     generate_lower_isometric,
 )
 
@@ -236,15 +237,29 @@ def generate_recovery_candidates(result: PipelineResult, config: PipelineConfig,
             config.hole_target_coverage_percent,
         )
         reports.append(report)
-        generated = generate_hole_recovery_candidates(
-            hole, report, settings, candidate_id_start=next_id,
+        focused = generate_focused_conical_orbits(
+            hole, report, settings, model=result.model,
+            candidate_id_start=next_id,
+            cone_angles_deg=config.focused_orbit_cone_angles_deg,
+            focus_depth_fraction=config.focused_orbit_focus_depth_fraction,
+            minimum_arc_deg=config.focused_orbit_minimum_arc_deg,
+            maximum_arc_deg=config.focused_orbit_maximum_arc_deg,
+            angular_spacing_deg=config.focused_orbit_angular_spacing_deg,
+            maximum_orbits=config.maximum_focused_orbits_per_hole,
+            laser_ray_count=config.standard_laser_ray_count,
+        ) if config.enable_focused_hole_orbit else ()
+        remaining_views = max(0, config.maximum_views_per_hole - len(focused))
+        legacy = generate_hole_recovery_candidates(
+            hole, report, settings, candidate_id_start=next_id + len(focused),
             tilt_angles_deg=config.hole_candidate_tilt_angles_deg,
             azimuth_count=config.hole_candidate_azimuth_count,
-            maximum_views=config.maximum_views_per_hole,
+            maximum_views=remaining_views,
             enable_orbital=config.enable_orbital_hole_sweep,
             enable_blind_bottom=config.enable_blind_hole_bottom_recovery,
-            orbital_mode=config.orbital_hole_mode,
-        )
+            orbital_mode=("disabled" if config.enable_focused_hole_orbit
+                          else config.orbital_hole_mode),
+        ) if remaining_views else ()
+        generated = (*focused, *legacy)
         shallow = hole.depth_mm <= 4.0 * hole.radius_mm
         primary = next((row for row in generated
                         if row.strategy == "tilted_cross_hole"), None)

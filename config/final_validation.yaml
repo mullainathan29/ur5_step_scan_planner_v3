@@ -1,0 +1,19 @@
+# Final Validation profile: detailed rays after geometric candidate pruning.
+validation:
+  # Dense laser-ray count used only when Final validation is requested.
+  final_laser_ray_count: 101
+hole_recovery:
+  # Aspirational hole coverage where geometry and visibility permit it.
+  target_coverage_percent: 95.0
+  # Aggressive view allowance; inaccessible candidates are pruned first.
+  maximum_views_per_hole: 8
+  # Fallback cross-hole azimuth count.
+  candidate_azimuth_count: 4
+  # Legacy full orbit is available only after geometric pruning.
+  orbital_mode: enabled
+  focused_conical_orbit:
+    # Full development cone-angle set.
+    candidate_cone_angles_deg: [20.0, 35.0, 50.0]
+mission:
+  # Maximum optional mission sweeps for final validation.
+  maximum_optional_sweeps: 8

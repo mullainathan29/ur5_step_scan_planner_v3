@@ -1,0 +1,4 @@
+# User overrides are applied after the selected quality profile.
+# Add only values you intentionally want to replace. The GUI never overwrites
+# this file without explicit confirmation.
+{}

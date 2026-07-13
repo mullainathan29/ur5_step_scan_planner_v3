@@ -1,0 +1,92 @@
+# Default scanner and planning configuration. Profile files and user overrides
+# are applied on top of these values; this file is never changed by the GUI.
+planning:
+  # Planning implementation used for trajectory generation.
+  mode: simple_view_based
+  # Default quality profile selected at startup.
+  quality: fast_preview
+  # Nominal lane separation used by exact face-based raster planners.
+  lane_spacing_mm: 20.0
+  # Faces smaller than this area are ignored by face-based planning.
+  minimum_face_area_mm2: 25.0
+  # Exact cylindrical planner strategy.
+  cylinder_strategy: longitudinal
+  # Surface types eligible for exact face-based planning.
+  surface_types: [plane, cylinder]
+scanner:
+  # Preferred scanner-reference distance to the visible target surface.
+  nominal_standoff_mm: 310.0
+  # Distance between consecutive scan poses.
+  travel_spacing_mm: 5.0
+  # Usable physical laser-line width at nominal stand-off.
+  laser_line_width_mm: 200.0
+  # Preferred range for normal scan poses; candidates outside it are rejected.
+  preferred_range_mm: [290.0, 330.0]
+  # Absolute hardware measurement range, not the normal planning range.
+  absolute_range_mm: [200.0, 420.0]
+validation:
+  # Laser rays per profile for Standard validation.
+  standard_laser_ray_count: 51
+  # Laser rays per profile for Final validation.
+  final_laser_ray_count: 101
+  # Maximum accepted angle between ray and target normal.
+  maximum_incidence_angle_deg: 60.0
+principal_coverage:
+  # Enables the principal top sweep.
+  top_sweep: true
+  # Enables front, right, back and left sweeps together.
+  side_sweeps: true
+  # Enables upper angled exterior recovery.
+  upper_isometric_recovery: true
+  # Enables lower-isometric and direct-bottom recovery.
+  bottom_coverage: true
+  # Fractional overlap between adjacent projected sweep lanes.
+  sweep_overlap_fraction: 0.20
+  # Angular sampling used while constructing upper isometric candidates.
+  isometric_azimuth_step_deg: 10.0
+hole_recovery:
+  # Enables feature-specific recovery for physical holes.
+  enabled: true
+  # Required cylindrical-wall coverage before a hole is complete.
+  target_coverage_percent: 85.0
+  # Maximum recovery candidates retained for one physical hole.
+  maximum_views_per_hole: 2
+  # Legacy cross-hole azimuth count retained for fallback recovery.
+  candidate_azimuth_count: 2
+  # Legacy orbital mode; focused conical orbits supersede it by default.
+  orbital_mode: disabled
+  # Minimum total or hole-area gain needed to select a candidate.
+  minimum_candidate_gain_percent: 1.0
+  # Enables blind-hole bottom-specific candidate views.
+  blind_bottom_enabled: true
+  # Enables lower-isometric recovery around the underside.
+  lower_isometric_enabled: true
+  # Maximum lower recovery orbit count.
+  maximum_lower_recovery_sweeps: 1
+  focused_conical_orbit:
+    # Enables angled arcs converging toward a focus point inside each bore.
+    enabled: true
+    # Candidate angles between hole axis and scanner measurement direction.
+    candidate_cone_angles_deg: [25.0, 40.0]
+    # Focus depth as a fraction of physical hole depth.
+    focus_depth_fraction: 0.6
+    # Angular pose separation along a focused orbit.
+    angular_spacing_deg: 5.0
+    # Minimum useful partial-orbit arc.
+    minimum_arc_deg: 45.0
+    # Maximum partial arc before full-orbit mode would be required.
+    maximum_arc_deg: 240.0
+    # Maximum independently selected focused arcs per physical hole.
+    maximum_orbits_per_hole: 1
+mission:
+  # Exterior-surface coverage target used to stop optional recovery.
+  total_target_coverage_percent: 90.0
+  # Maximum optional sweeps selected by mission optimisation.
+  maximum_optional_sweeps: 3
+viewer:
+  # Display every Nth scanner-offset connector.
+  connector_stride: 10
+  # Display every Nth scanner coordinate frame.
+  frame_stride: 20
+  # Display every Nth physical laser footprint.
+  laser_footprint_stride: 20

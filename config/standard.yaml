@@ -1,0 +1,21 @@
+# Standard profile: balanced validation detail and adaptive recovery.
+validation:
+  # Laser rays per physical profile.
+  standard_laser_ray_count: 51
+hole_recovery:
+  # Standard per-hole wall-coverage target.
+  target_coverage_percent: 90.0
+  # Maximum recovery views retained per physical hole.
+  maximum_views_per_hole: 4
+  # Fallback cross-hole azimuth count.
+  candidate_azimuth_count: 4
+  # Legacy orbit is adaptive if focused recovery is disabled.
+  orbital_mode: adaptive
+  # Minimum useful coverage improvement.
+  minimum_candidate_gain_percent: 0.5
+  focused_conical_orbit:
+    # Balanced cone-angle candidates for near-wall and deep visibility.
+    candidate_cone_angles_deg: [20.0, 35.0, 50.0]
+mission:
+  # Maximum optional mission sweeps in Standard mode.
+  maximum_optional_sweeps: 5

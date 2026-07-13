@@ -152,6 +152,16 @@ class Pose:
     hole_coverage_after: float = 0.0
     bottom_coverage_gain: float = 0.0
     mandatory_or_optional: str = "mandatory"
+    focus_point: tuple[float, float, float] | None = None
+    focus_depth_mm: float | None = None
+    orbit_radius_mm: float | None = None
+    cone_angle_deg: float | None = None
+    orbit_start_deg: float | None = None
+    orbit_end_deg: float | None = None
+    hole_axis: tuple[float, float, float] | None = None
+    predicted_hole_wall_gain: float = 0.0
+    predicted_depth_gain: float = 0.0
+    predicted_angular_sector_gain: float = 0.0
 
 
 @dataclass(frozen=True)

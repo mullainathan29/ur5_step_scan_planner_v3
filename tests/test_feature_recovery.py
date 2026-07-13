@@ -8,6 +8,7 @@ from pathlib import Path
 import cadquery as cq
 import numpy as np
 import trimesh
+from scipy.spatial.transform import Rotation
 
 from app.config import PipelineConfig
 from app.pipeline import run_pipeline
@@ -19,7 +20,7 @@ from planners.view_based import ViewBasedSweepPlanner, ViewSweepSettings
 from recovery import (
     RecoveryCandidate, candidate_accessible, generate_bottom_sweep,
     estimate_candidate_complexity, generate_hole_recovery_candidates,
-    generate_lower_isometric,
+    generate_focused_conical_orbits, generate_lower_isometric,
 )
 
 
@@ -188,6 +189,78 @@ def test_orbital_orientation_continuity_and_rim_occlusion() -> None:
         temporary.cleanup()
 
 
+def test_focused_conical_orbit_frame_partial_arc_and_preferred_range() -> None:
+    temporary, model, _ = _model("through")
+    try:
+        hole = detect_hole_features(model)[0]
+        empty = analyse_hole_coverage(
+            model, hole,
+            validate_coverage(model, (), CoverageSettings(include_internal_surfaces=True)),
+        )
+        local = replace(
+            empty, uncovered_angular_sectors_deg=((30.0, 60.0),), complete=False
+        )
+        candidates = generate_focused_conical_orbits(
+            hole, local, ViewSweepSettings(), model=model,
+            cone_angles_deg=(20.0, 35.0, 50.0), minimum_arc_deg=45.0,
+            maximum_arc_deg=240.0, angular_spacing_deg=5.0,
+        )
+        assert len(candidates) == 1
+        candidate = candidates[0]
+        assert candidate.strategy == "focused_conical_orbit"
+        scan = candidate.sweep.scan_poses
+        assert len(scan) == 10
+        focus = np.asarray(scan[0].focus_point)
+        axis = np.asarray(scan[0].hole_axis)
+        opening = hole.entry_opening_centre
+        quaternions = np.asarray([pose.quaternion_xyzw for pose in scan])
+        rotations = [Rotation.from_quat(value) for value in quaternions]
+        for index, (pose, rotation) in enumerate(zip(scan, rotations)):
+            x_axis, y_axis, z_axis = rotation.apply(np.eye(3))
+            assert np.allclose(z_axis, (focus - pose.position) / np.linalg.norm(focus - pose.position))
+            assert np.allclose(np.cross(x_axis, y_axis), z_axis, atol=1e-7)
+            assert abs(np.dot(axis, y_axis)) < 1e-7  # axis lies in X-Z profile plane
+            assert np.linalg.norm(pose.position - opening) > hole.radius_mm
+            assert 290.0 <= np.linalg.norm(pose.position - focus) <= 330.0
+            if index + 1 < len(scan):
+                travel = scan[index + 1].position - pose.position
+                assert np.dot(y_axis, travel) > 0.0
+        assert np.all(np.sum(quaternions[:-1] * quaternions[1:], axis=1) >= 0.0)
+        assert scan[0].orbit_end_deg - scan[0].orbit_start_deg == 45.0
+        assert scan[0].predicted_hole_wall_gain > 0.0
+        assert all(pose.recovery_strategy == "focused_conical_orbit" for pose in scan)
+        assert [pose.motion_type.value for pose in candidate.sweep.poses[:2]] == [
+            "approach", "lead_in"
+        ]
+        assert [pose.motion_type.value for pose in candidate.sweep.poses[-2:]] == [
+            "lead_out", "retract"
+        ]
+    finally:
+        temporary.cleanup()
+
+
+def test_focused_orbit_avoids_full_circle_and_rejects_no_wall_hits() -> None:
+    temporary, model, _ = _model("through")
+    try:
+        hole = detect_hole_features(model)[0]
+        report = analyse_hole_coverage(
+            model, hole,
+            validate_coverage(model, (), CoverageSettings(include_internal_surfaces=True)),
+        )
+        orbit = generate_focused_conical_orbits(
+            hole, report, ViewSweepSettings(), model=model,
+            maximum_arc_deg=240.0,
+        )[0]
+        pose = orbit.sweep.scan_poses[0]
+        assert pose.orbit_end_deg - pose.orbit_start_deg <= 240.0
+        occluded = replace(hole, cylindrical_face_ids=(999999,))
+        assert generate_focused_conical_orbits(
+            occluded, report, ViewSweepSettings(), model=model
+        ) == ()
+    finally:
+        temporary.cleanup()
+
+
 def test_blind_bottom_candidates_and_underside_generation() -> None:
     temporary, model, _ = _model("blind")
     try:
@@ -264,6 +337,11 @@ def test_feature_export_reports_and_pose_schema() -> None:
             "recovery_strategy", "candidate_score", "coverage_gain",
             "hole_coverage_before", "hole_coverage_after",
             "bottom_coverage_gain", "mandatory_or_optional",
+            "focus_x", "focus_y", "focus_z", "focus_depth_mm",
+            "orbit_radius_mm", "cone_angle_deg", "orbit_start_deg",
+            "orbit_end_deg", "hole_axis_x", "hole_axis_y", "hole_axis_z",
+            "predicted_hole_wall_gain", "predicted_depth_gain",
+            "predicted_angular_sector_gain",
         }
         assert required <= trajectory["trajectory"][0].keys()
     finally:

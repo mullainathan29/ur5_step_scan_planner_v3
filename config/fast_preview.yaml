@@ -1,0 +1,17 @@
+# Fast Preview profile: coarse optical work and tightly limited recovery.
+validation:
+  # Laser rays per profile if coverage is explicitly requested.
+  standard_laser_ray_count: 21
+hole_recovery:
+  # Fast per-hole wall-coverage target.
+  target_coverage_percent: 85.0
+  # Maximum recovery views retained per physical hole.
+  maximum_views_per_hole: 2
+  focused_conical_orbit:
+    # Fast candidate cone-angle set.
+    candidate_cone_angles_deg: [25.0, 40.0]
+    # Partial arcs adapt to missing wall sectors; no full orbit is generated.
+    maximum_arc_deg: 240.0
+mission:
+  # Maximum optional mission sweeps in preview.
+  maximum_optional_sweeps: 3

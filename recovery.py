@@ -137,6 +137,227 @@ def _motion_poses(
     )
 
 
+def _focused_arc_ranges(report, minimum_arc_deg, maximum_arc_deg, maximum_orbits):
+    sectors = sorted(report.uncovered_angular_sectors_deg)
+    if not sectors:
+        return ()
+    merged = []
+    for start, end in sectors:
+        if merged and start <= merged[-1][1] + 1.0e-6:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([float(start), float(end)])
+    if len(merged) > 1 and merged[0][0] == 0.0 and merged[-1][1] == 360.0:
+        merged = [[merged[-1][0] - 360.0, merged[0][1]], *merged[1:-1]]
+    arcs = []
+    for start, end in merged:
+        centre = 0.5 * (start + end)
+        span = min(max(end - start, minimum_arc_deg), maximum_arc_deg)
+        arcs.append((centre - span / 2.0, centre + span / 2.0))
+    return tuple(sorted(arcs, key=lambda row: row[1] - row[0], reverse=True)
+                 [:max(0, maximum_orbits)])
+
+
+def _focused_orbit_candidate(feature, settings, sweep_id, cone_angle_deg, arc,
+                              focus_depth_fraction, angular_spacing_deg):
+    centre = np.asarray(feature.entry_opening_centre, dtype=float)
+    axis = _normalise(-np.asarray(feature.entry_opening_normal, dtype=float))
+    reference = np.array([1.0, 0.0, 0.0])
+    if abs(float(np.dot(reference, axis))) > 0.9:
+        reference = np.array([0.0, 1.0, 0.0])
+    e1 = _normalise(reference - np.dot(reference, axis) * axis)
+    e2 = _normalise(np.cross(axis, e1))
+    focus_depth = min(max(1.0e-6, focus_depth_fraction * feature.depth_mm),
+                      2.0 * feature.radius_mm,
+                      max(1.0e-6, feature.depth_mm - 1.0e-6))
+    focus = centre + focus_depth * axis
+    preferred_distance = float(np.clip(settings.stand_off_mm, 290.0, 330.0))
+    cone = np.deg2rad(cone_angle_deg)
+    start_deg, end_deg = arc
+    count = max(2, int(np.ceil(abs(end_deg - start_deg) / angular_spacing_deg)) + 1)
+    angles = np.deg2rad(np.linspace(start_deg, end_deg, count))
+    positions, lasers = [], []
+    for theta in angles:
+        radial = np.cos(theta) * e1 + np.sin(theta) * e2
+        tangent = _normalise(-np.sin(theta) * e1 + np.cos(theta) * e2)
+        measurement = _normalise(np.cos(cone) * axis - np.sin(cone) * radial)
+        positions.append(focus - preferred_distance * measurement)
+        lasers.append(_normalise(np.cross(tangent, measurement)))
+    name = (f"hole_{feature.feature_id}_focused_{int(round(cone_angle_deg))}_"
+            f"{int(round(start_deg))}_{int(round(end_deg))}")
+    poses = _motion_poses(
+        positions, [focus] * len(positions), lasers, sweep_id, name,
+        "hole_recovery", "focused_conical_orbit", preferred_distance,
+        2.0 * feature.radius_mm, feature.feature_id,
+    )
+    metadata = dict(
+        focus_point=tuple(float(value) for value in focus),
+        focus_depth_mm=float(focus_depth),
+        orbit_radius_mm=float(preferred_distance * np.sin(cone)),
+        cone_angle_deg=float(cone_angle_deg), orbit_start_deg=float(start_deg),
+        orbit_end_deg=float(end_deg), hole_axis=tuple(float(value) for value in axis),
+    )
+    poses = tuple(replace(pose, **metadata) for pose in poses)
+    return RecoveryCandidate(
+        sweep_id, name, "focused_conical_orbit",
+        ViewSweep(sweep_id, name, "hole_recovery", 0, poses, "turquoise"),
+        feature.feature_id,
+    )
+
+
+def _score_focused_orbit(candidate, feature, model, laser_ray_count,
+                         laser_width_mm, minimum_arc_deg):
+    # Cover the full physical laser line and add local aperture-resolution
+    # rays. Uniform preview rays alone can miss a small bore between samples.
+    full_line_offsets = np.linspace(
+        -0.5 * laser_width_mm, 0.5 * laser_width_mm,
+        max(3, laser_ray_count),
+    )
+    opening_offsets = np.linspace(-feature.radius_mm, feature.radius_mm, 9)
+    offsets = np.unique(np.concatenate((full_line_offsets, opening_offsets)))
+    origins, directions = [], []
+    for pose in candidate.sweep.scan_poses:
+        rotation = Rotation.from_quat(pose.quaternion_xyzw)
+        laser = rotation.apply([1.0, 0.0, 0.0])
+        direction = rotation.apply([0.0, 0.0, 1.0])
+        origins.extend(pose.position + offset * laser for offset in offsets)
+        directions.extend([direction] * len(offsets))
+    origins = np.asarray(origins)
+    directions = np.asarray(directions)
+    locations, ray_ids, triangle_ids = model.validation_mesh.mesh.ray.intersects_location(
+        origins, directions, multiple_hits=False,
+    )
+    ray_ids = np.asarray(ray_ids, dtype=int)
+    triangle_ids = np.asarray(triangle_ids, dtype=int)
+    if not len(triangle_ids):
+        return None
+    distances = np.linalg.norm(np.asarray(locations) - origins[ray_ids], axis=1)
+    normals = np.asarray(model.validation_mesh.mesh.face_normals)[triangle_ids]
+    incidence = np.abs(np.einsum("ij,ij->i", normals, directions[ray_ids]))
+    mapping = model.validation_mesh.triangle_face_ids
+    areas = np.asarray(model.validation_mesh.mesh.area_faces)
+    useful_hits = (np.isin(mapping[triangle_ids], feature.cylindrical_face_ids)
+                   & (distances >= 290.0) & (distances <= 330.0)
+                   & (incidence >= np.cos(np.deg2rad(60.0))))
+    pose_indices = ray_ids // len(offsets)
+    useful_distances = []
+    pose_valid = []
+    for pose_index in range(len(candidate.sweep.scan_poses)):
+        values = distances[useful_hits & (pose_indices == pose_index)]
+        pose_valid.append(bool(len(values)))
+        useful_distances.append(float(np.median(values)) if len(values) else np.nan)
+    runs, run_start = [], None
+    for index, valid in enumerate((*pose_valid, False)):
+        if valid and run_start is None:
+            run_start = index
+        elif not valid and run_start is not None:
+            runs.append((run_start, index)); run_start = None
+    if not runs:
+        return None
+    start_index, stop_index = max(runs, key=lambda row: row[1] - row[0])
+    original_scans = candidate.sweep.scan_poses
+    total_span = float(original_scans[0].orbit_end_deg - original_scans[0].orbit_start_deg)
+    step = total_span / max(len(original_scans) - 1, 1)
+    retained_span = step * max(stop_index - start_index - 1, 0)
+    if retained_span + 1.0e-6 < minimum_arc_deg:
+        return None
+    retained_rays = ((pose_indices >= start_index) & (pose_indices < stop_index))
+    useful_hits &= retained_rays
+    covered_ids = np.unique(triangle_ids[useful_hits])
+    if not len(covered_ids):
+        return None
+    wall_area = float(areas[covered_ids].sum())
+    centres = np.asarray(model.validation_mesh.mesh.triangles_center)[covered_ids]
+    relative = centres - feature.entry_opening_centre
+    depths = relative @ (-feature.entry_opening_normal)
+    depth_gain = max(0.0, float(np.ptp(depths))) if len(depths) > 1 else 0.0
+    axis = _normalise(feature.axis)
+    reference = np.array([1.0, 0.0, 0.0])
+    if abs(float(np.dot(reference, axis))) > 0.9:
+        reference = np.array([0.0, 1.0, 0.0])
+    e1 = _normalise(reference - np.dot(reference, axis) * axis)
+    e2 = np.cross(axis, e1)
+    radial = relative - np.outer(relative @ axis, axis)
+    angles = np.unwrap(np.arctan2(radial @ e2, radial @ e1))
+    angular_gain = float(np.degrees(np.ptp(angles))) if len(angles) > 1 else 0.0
+    scans = candidate.sweep.scan_poses[start_index:stop_index]
+    corrected_scans = []
+    trimmed_start = float(scans[0].orbit_start_deg + start_index * step)
+    trimmed_end = float(scans[0].orbit_start_deg + (stop_index - 1) * step)
+    for pose, hit_distance in zip(scans, useful_distances[start_index:stop_index]):
+        z_axis = Rotation.from_quat(pose.quaternion_xyzw).apply([0.0, 0.0, 1.0])
+        correction = 310.0 - hit_distance
+        corrected_scans.append(replace(
+            pose, position=pose.position - correction * z_axis,
+            predicted_stand_off_mm=310.0, orbit_start_deg=trimmed_start,
+            orbit_end_deg=trimmed_end,
+        ))
+    first, last = corrected_scans[0], corrected_scans[-1]
+    approach_clearance = 120.0
+    corrected_poses = (
+        replace(candidate.sweep.poses[0], position=first.position
+                + approach_clearance * first.surface_normal,
+                orbit_start_deg=trimmed_start, orbit_end_deg=trimmed_end),
+        replace(candidate.sweep.poses[1], position=first.position,
+                orbit_start_deg=trimmed_start, orbit_end_deg=trimmed_end),
+        *corrected_scans,
+        replace(candidate.sweep.poses[-2], position=last.position,
+                orbit_start_deg=trimmed_start, orbit_end_deg=trimmed_end),
+        replace(candidate.sweep.poses[-1], position=last.position
+                + approach_clearance * last.surface_normal,
+                orbit_start_deg=trimmed_start, orbit_end_deg=trimmed_end),
+    )
+    candidate = replace(candidate, sweep=replace(candidate.sweep,
+                                                 poses=corrected_poses))
+    scans = candidate.sweep.scan_poses
+    path_length = sum(float(np.linalg.norm(b.position - a.position))
+                      for a, b in zip(scans, scans[1:]))
+    unrelated_hits = int(np.count_nonzero(
+        ~np.isin(mapping[triangle_ids], feature.cylindrical_face_ids)
+    ))
+    score = (wall_area + 0.2 * angular_gain + depth_gain
+             - 0.01 * path_length - 0.02 * unrelated_hits)
+    sweep = replace(candidate.sweep, poses=tuple(replace(
+        pose, predicted_hole_wall_gain=wall_area,
+        predicted_depth_gain=depth_gain,
+        predicted_angular_sector_gain=angular_gain,
+    ) for pose in candidate.sweep.poses))
+    return score, replace(candidate, sweep=sweep, candidate_score=score,
+                          coverage_gain_percent=wall_area)
+
+
+def generate_focused_conical_orbits(
+    feature: HoleFeature, report: HoleCoverageReport, settings: ViewSweepSettings,
+    *, model: CadModel | None = None, candidate_id_start: int = 0,
+    cone_angles_deg: tuple[float, ...] = (20.0, 35.0, 50.0),
+    focus_depth_fraction: float = 0.6, minimum_arc_deg: float = 45.0,
+    maximum_arc_deg: float = 240.0, angular_spacing_deg: float = 5.0,
+    maximum_orbits: int = 1, laser_ray_count: int = 21,
+) -> tuple[RecoveryCandidate, ...]:
+    """Return the best valid cone angle for each bounded missing-wall arc."""
+    if report.complete or not feature.cylindrical_face_ids:
+        return ()
+    arcs = _focused_arc_ranges(report, minimum_arc_deg, maximum_arc_deg,
+                               maximum_orbits)
+    selected = []
+    for index, arc in enumerate(arcs):
+        candidates = [_focused_orbit_candidate(
+            feature, settings, candidate_id_start + index, angle, arc,
+            focus_depth_fraction, angular_spacing_deg,
+        ) for angle in cone_angles_deg]
+        if model is None:
+            if candidates:
+                selected.append(candidates[0])
+            continue
+        scored = [value for candidate in candidates
+                  if (value := _score_focused_orbit(
+                      candidate, feature, model, laser_ray_count,
+                      settings.laser_width_mm, minimum_arc_deg)) is not None]
+        if scored:
+            selected.append(max(scored, key=lambda value: value[0])[1])
+    return tuple(selected)
+
+
 def generate_hole_recovery_candidates(
     feature: HoleFeature,
     report: HoleCoverageReport,

@@ -34,7 +34,8 @@ from viewer import show_pipeline
 from region_motion import assemble_region_motion
 from recovery import (
     RecoveryCandidate, candidate_accessible, generate_bottom_sweep,
-    generate_hole_recovery_candidates, generate_lower_diagonal_sweeps,
+    generate_focused_conical_orbits, generate_hole_recovery_candidates,
+    generate_lower_diagonal_sweeps,
     generate_lower_isometric,
 )
 
@@ -188,15 +189,30 @@ def _run_view_based_pipeline(config: PipelineConfig, model) -> PipelineResult:
     next_id = max((sweep.sweep_id for sweep in mission.sweeps), default=-1) + 1
     if config.enable_hole_recovery:
         for hole, report in zip(holes, initial_hole_reports):
-            generated = generate_hole_recovery_candidates(
-                hole, report, planner.settings, candidate_id_start=next_id,
+            focused = generate_focused_conical_orbits(
+                hole, report, planner.settings, model=model,
+                candidate_id_start=next_id,
+                cone_angles_deg=config.focused_orbit_cone_angles_deg,
+                focus_depth_fraction=config.focused_orbit_focus_depth_fraction,
+                minimum_arc_deg=config.focused_orbit_minimum_arc_deg,
+                maximum_arc_deg=config.focused_orbit_maximum_arc_deg,
+                angular_spacing_deg=config.focused_orbit_angular_spacing_deg,
+                maximum_orbits=config.maximum_focused_orbits_per_hole,
+                laser_ray_count=config.laser_ray_count,
+            ) if config.enable_focused_hole_orbit else ()
+            remaining_views = max(0, config.maximum_views_per_hole - len(focused))
+            legacy = generate_hole_recovery_candidates(
+                hole, report, planner.settings,
+                candidate_id_start=next_id + len(focused),
                 tilt_angles_deg=config.hole_candidate_tilt_angles_deg,
                 azimuth_count=config.hole_candidate_azimuth_count,
-                maximum_views=config.maximum_views_per_hole,
+                maximum_views=remaining_views,
                 enable_orbital=config.enable_orbital_hole_sweep,
                 enable_blind_bottom=config.enable_blind_hole_bottom_recovery,
-                orbital_mode=config.orbital_hole_mode,
-            )
+                orbital_mode=("disabled" if config.enable_focused_hole_orbit
+                              else config.orbital_hole_mode),
+            ) if remaining_views else ()
+            generated = (*focused, *legacy)
             optionals.extend(generated)
             next_id += len(generated)
     fixture_path = (

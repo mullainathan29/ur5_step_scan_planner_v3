@@ -92,6 +92,20 @@ def _pose_row(pose: Pose) -> dict[str, Any]:
         "hole_coverage_after": pose.hole_coverage_after,
         "bottom_coverage_gain": pose.bottom_coverage_gain,
         "mandatory_or_optional": pose.mandatory_or_optional,
+        "focus_x": None if pose.focus_point is None else float(pose.focus_point[0]),
+        "focus_y": None if pose.focus_point is None else float(pose.focus_point[1]),
+        "focus_z": None if pose.focus_point is None else float(pose.focus_point[2]),
+        "focus_depth_mm": pose.focus_depth_mm,
+        "orbit_radius_mm": pose.orbit_radius_mm,
+        "cone_angle_deg": pose.cone_angle_deg,
+        "orbit_start_deg": pose.orbit_start_deg,
+        "orbit_end_deg": pose.orbit_end_deg,
+        "hole_axis_x": None if pose.hole_axis is None else float(pose.hole_axis[0]),
+        "hole_axis_y": None if pose.hole_axis is None else float(pose.hole_axis[1]),
+        "hole_axis_z": None if pose.hole_axis is None else float(pose.hole_axis[2]),
+        "predicted_hole_wall_gain": pose.predicted_hole_wall_gain,
+        "predicted_depth_gain": pose.predicted_depth_gain,
+        "predicted_angular_sector_gain": pose.predicted_angular_sector_gain,
     }
 
 

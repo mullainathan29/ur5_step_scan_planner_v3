@@ -113,6 +113,15 @@ class PipelineConfig:
     planning_quality: str = "fast_preview"
     standard_laser_ray_count: int = 21
     final_laser_ray_count: int = 101
+    enable_focused_hole_orbit: bool = True
+    focused_orbit_cone_angles_deg: tuple[float, ...] = (25.0, 40.0)
+    focused_orbit_focus_depth_fraction: float = 0.6
+    focused_orbit_minimum_arc_deg: float = 45.0
+    focused_orbit_maximum_arc_deg: float = 240.0
+    focused_orbit_angular_spacing_deg: float = 5.0
+    maximum_focused_orbits_per_hole: int = 1
+    preferred_min_range_mm: float = 290.0
+    preferred_max_range_mm: float = 330.0
 
     def validate(self) -> None:
         if self.planning_mode not in {"simple_view_based", "advanced_face_based"}:
@@ -131,6 +140,21 @@ class PipelineConfig:
             raise ValueError("travel_spacing_mm must be greater than zero.")
         if self.stand_off_mm <= 0.0:
             raise ValueError("stand_off_mm must be greater than zero.")
+        if not self.min_sensor_range_mm < self.max_sensor_range_mm:
+            raise ValueError("scanner.absolute_range_mm must have minimum below maximum.")
+        if not (self.min_sensor_range_mm <= self.preferred_min_range_mm
+                < self.preferred_max_range_mm <= self.max_sensor_range_mm):
+            raise ValueError(
+                "scanner.preferred_range_mm must lie inside scanner.absolute_range_mm."
+            )
+        if self.focused_orbit_angular_spacing_deg <= 0.0:
+            raise ValueError(
+                "hole_recovery.focused_conical_orbit.angular_spacing_deg must be greater than zero."
+            )
+        if self.focused_orbit_minimum_arc_deg > self.focused_orbit_maximum_arc_deg:
+            raise ValueError(
+                "hole_recovery.focused_conical_orbit.minimum_arc_deg must not exceed maximum_arc_deg."
+            )
         if (
             self.planning_mode == "simple_view_based"
             and not self.min_sensor_range_mm <= self.stand_off_mm <= self.max_sensor_range_mm

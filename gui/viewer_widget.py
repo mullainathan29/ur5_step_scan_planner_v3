@@ -18,7 +18,7 @@ from coverage import coverage_rgb
 LAYER_DEFAULTS = {
     "cad": True, "coverage": True, "nominal": True, "scanner": True,
     "transition": False, "connectors": False, "frames": False,
-    "laser": False, "labels": False,
+    "laser": False, "labels": False, "recovery": True, "focused": False,
     "features": True,
 }
 
@@ -30,6 +30,7 @@ class ActorRecord:
     region_id: int | None = None
     face_ids: frozenset[int] = frozenset()
     surface_type: str | None = None
+    hole_id: int = -1
 
 
 class LayerController:
@@ -42,6 +43,7 @@ class LayerController:
         self.face_id: int | None = None
         self.surface_type: str | None = None
         self.only_selected_region = False
+        self.selected_hole_id = -1
 
     def add(self, record: ActorRecord) -> None:
         self.records.append(record)
@@ -56,6 +58,9 @@ class LayerController:
                     visible = visible and self.face_id in record.face_ids
                 if self.surface_type is not None:
                     visible = visible and record.surface_type == self.surface_type
+            if (record.hole_id >= 0 and self.selected_hole_id >= 0
+                    and record.layer in {"focused", "recovery"}):
+                visible = visible and record.hole_id == self.selected_hole_id
             record.actor.SetVisibility(bool(visible))
 
     def set_layer(self, layer: str, visible: bool) -> None:
@@ -163,16 +168,83 @@ class ViewerWidget(QtWidgets.QWidget):
             nominal = np.asarray([pose.surface_point for pose in scan])
             scanner = np.asarray([pose.position for pose in scan])
             transition = np.asarray([pose.position for pose in sweep.poses])
+            path_layer = "recovery" if sweep.view_type in {
+                "hole_recovery", "lower_isometric", "bottom"
+            } else "scanner"
             for layer, points, width in (
                 ("nominal", nominal, 4), ("scanner", scanner, 2),
                 ("transition", transition, 1),
             ):
+                if layer == "scanner":
+                    layer = path_layer
                 if len(points) >= 2:
                     actor = self.interactor.add_mesh(
                         pv.lines_from_points(points), color=sweep.colour,
                         line_width=width,
                     )
                     self.controller.add(ActorRecord(actor, layer, **metadata))
+        feature_by_id = {feature.feature_id: feature for feature in result.hole_features}
+        palette = ("turquoise", "coral", "violet", "gold", "lime", "deepskyblue")
+        focused = [candidate for candidate in result.recovery_candidates
+                   if candidate.strategy == "focused_conical_orbit"]
+        for candidate in focused:
+            scan = candidate.sweep.scan_poses
+            feature = feature_by_id.get(candidate.target_hole_id)
+            if not scan or feature is None:
+                continue
+            color = palette[feature.feature_id % len(palette)]
+            points = np.asarray([pose.position for pose in scan])
+            actor = self.interactor.add_mesh(
+                pv.lines_from_points(points), color=color, line_width=4,
+            )
+            self.controller.add(ActorRecord(
+                actor, "focused", hole_id=feature.feature_id
+            ))
+            axis = -np.asarray(feature.entry_opening_normal, dtype=float)
+            axis /= np.linalg.norm(axis)
+            axis_length = max(feature.depth_mm, 2.0 * feature.radius_mm)
+            axis_actor = self.interactor.add_arrows(
+                np.asarray([feature.entry_opening_centre]),
+                np.asarray([axis * axis_length]), color=color,
+            )
+            self.controller.add(ActorRecord(
+                axis_actor, "focused", hole_id=feature.feature_id
+            ))
+            reference = np.array([1.0, 0.0, 0.0])
+            if abs(float(np.dot(reference, axis))) > 0.9:
+                reference = np.array([0.0, 1.0, 0.0])
+            e1 = reference - np.dot(reference, axis) * axis
+            e1 /= np.linalg.norm(e1)
+            e2 = np.cross(axis, e1)
+            circle_angles = np.linspace(0.0, 2.0 * np.pi, 49)
+            circle = np.asarray([
+                feature.entry_opening_centre + feature.radius_mm
+                * (np.cos(angle) * e1 + np.sin(angle) * e2)
+                for angle in circle_angles
+            ])
+            circle_actor = self.interactor.add_mesh(
+                pv.lines_from_points(circle), color=color, line_width=2,
+            )
+            self.controller.add(ActorRecord(
+                circle_actor, "focused", hole_id=feature.feature_id
+            ))
+            focus = np.asarray(scan[0].focus_point)
+            focus_actor = self.interactor.add_mesh(
+                pv.Sphere(radius=max(feature.radius_mm * 0.12, 0.25), center=focus),
+                color=color,
+            )
+            self.controller.add(ActorRecord(
+                focus_actor, "focused", hole_id=feature.feature_id
+            ))
+            connectors = [(pose.position, focus)
+                          for pose in scan[::max(1, config.laser_footprint_stride)]]
+            if connectors:
+                connector_actor = self.interactor.add_mesh(
+                    _line_polydata(connectors), color=color, line_width=1,
+                )
+                self.controller.add(ActorRecord(
+                    connector_actor, "focused", hole_id=feature.feature_id
+                ))
         plans = (*result.planar_plans, *result.cylindrical_plans,
                  *result.conical_plans, *result.spherical_plans)
         for plan in plans:
@@ -267,9 +339,11 @@ class ViewerWidget(QtWidgets.QWidget):
         self.fit_trajectory()
 
     def select_hole(self, feature_id: int) -> None:
+        self.controller.selected_hole_id = feature_id
         for hole_id, actor in self._hole_actors.items():
             actor.GetProperty().SetColor(
                 (1.0, 0.1, 0.1) if hole_id == feature_id else (1.0, 1.0, 0.0)
             )
             actor.GetProperty().SetLineWidth(5 if hole_id == feature_id else 2)
+        self.controller.refresh()
         self.interactor.render()
