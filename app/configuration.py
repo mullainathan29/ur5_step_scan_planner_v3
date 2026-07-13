@@ -160,6 +160,16 @@ PATH_TO_FIELD = {
     "transition_planning.proximity_penalty": "proximity_penalty",
     "transition_planning.graph_waypoint_density": "graph_waypoint_density",
     "transition_planning.collision_sampling_interval_mm": "collision_sampling_interval_mm",
+    "free_travel_smoothing.enabled": "free_travel_smoothing_enabled",
+    "free_travel_smoothing.method": "free_travel_smoothing_method",
+    "free_travel_smoothing.nominal_blend_radius_mm": "nominal_blend_radius_mm",
+    "free_travel_smoothing.minimum_blend_radius_mm": "minimum_blend_radius_mm",
+    "free_travel_smoothing.sample_spacing_mm": "sample_spacing_mm",
+    "free_travel_smoothing.maximum_route_deviation_mm": "maximum_route_deviation_mm",
+    "free_travel_smoothing.maximum_retries": "maximum_retries",
+    "orientation_smoothing.enabled": "orientation_smoothing_enabled",
+    "orientation_smoothing.maximum_step_deg": "orientation_smoothing_maximum_step_deg",
+    "orientation_smoothing.interpolation_window_fraction": "orientation_interpolation_window_fraction",
 }
 
 

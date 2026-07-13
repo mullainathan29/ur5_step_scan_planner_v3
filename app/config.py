@@ -140,6 +140,20 @@ class PipelineConfig:
     max_position_step_mm: float = 20.0
     max_orientation_step_deg: float = 5.0
 
+    # Free-travel smoothing settings
+    free_travel_smoothing_enabled: bool = True
+    free_travel_smoothing_method: str = "catmull_rom"
+    nominal_blend_radius_mm: float = 60.0
+    minimum_blend_radius_mm: float = 10.0
+    sample_spacing_mm: float = 10.0
+    maximum_route_deviation_mm: float = 50.0
+    maximum_retries: int = 5
+
+    # Orientation smoothing settings
+    orientation_smoothing_enabled: bool = True
+    orientation_smoothing_maximum_step_deg: float = 5.0
+    orientation_interpolation_window_fraction: float = 0.8
+
     def validate(self) -> None:
         if self.planning_mode not in {"simple_view_based", "advanced_face_based"}:
             raise ValueError(f"Unsupported planning mode: {self.planning_mode}.")
@@ -210,3 +224,21 @@ class PipelineConfig:
             raise ValueError("Optical laser ray counts must be at least 3.")
         if self.orbital_hole_mode not in {"disabled", "adaptive", "enabled"}:
             raise ValueError(f"Unsupported orbital hole mode: {self.orbital_hole_mode}.")
+        if self.free_travel_smoothing_method not in {"catmull_rom", "b_spline"}:
+            raise ValueError("free_travel_smoothing.method must be 'catmull_rom' or 'b_spline'.")
+        if self.nominal_blend_radius_mm <= 0.0:
+            raise ValueError("free_travel_smoothing.nominal_blend_radius_mm must be greater than zero.")
+        if self.minimum_blend_radius_mm <= 0.0:
+            raise ValueError("free_travel_smoothing.minimum_blend_radius_mm must be greater than zero.")
+        if self.minimum_blend_radius_mm > self.nominal_blend_radius_mm:
+            raise ValueError("free_travel_smoothing.minimum_blend_radius_mm must not exceed nominal_blend_radius_mm.")
+        if self.sample_spacing_mm <= 0.0:
+            raise ValueError("free_travel_smoothing.sample_spacing_mm must be greater than zero.")
+        if self.maximum_route_deviation_mm < 0.0:
+            raise ValueError("free_travel_smoothing.maximum_route_deviation_mm must not be negative.")
+        if self.maximum_retries < 1:
+            raise ValueError("free_travel_smoothing.maximum_retries must be at least 1.")
+        if self.orientation_smoothing_maximum_step_deg <= 0.0:
+            raise ValueError("orientation_smoothing.maximum_step_deg must be greater than zero.")
+        if not 0.0 < self.orientation_interpolation_window_fraction <= 1.0:
+            raise ValueError("orientation_smoothing.interpolation_window_fraction must be in (0, 1].")

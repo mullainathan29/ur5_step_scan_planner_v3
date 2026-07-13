@@ -117,6 +117,9 @@ def _pose_row(pose: Pose) -> dict[str, Any]:
         "clearance_mm": float(pose.clearance_mm),
         "collision_checked": pose.collision_checked,
         "envelope_type": pose.envelope_type,
+        "smoothing_method": pose.smoothing_method,
+        "smoothing_status": pose.smoothing_status,
+        "local_curvature": float(pose.local_curvature),
     }
 
 

@@ -181,6 +181,9 @@ class Pose:
     clearance_mm: float = 0.0
     collision_checked: bool = False
     envelope_type: str = ""
+    smoothing_method: str = ""
+    smoothing_status: str = ""
+    local_curvature: float = 0.0
 
 
 @dataclass(frozen=True)

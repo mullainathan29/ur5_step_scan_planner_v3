@@ -105,3 +105,18 @@ transition_planning:
   proximity_penalty: 10.0
   graph_waypoint_density: 2.0
   collision_sampling_interval_mm: 5.0
+
+free_travel_smoothing:
+  enabled: true
+  method: "catmull_rom"
+  nominal_blend_radius_mm: 60.0
+  minimum_blend_radius_mm: 10.0
+  sample_spacing_mm: 10.0
+  maximum_route_deviation_mm: 50.0
+  maximum_retries: 5
+
+orientation_smoothing:
+  enabled: true
+  maximum_step_deg: 5.0
+  interpolation_window_fraction: 0.8
+

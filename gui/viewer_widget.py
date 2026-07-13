@@ -25,6 +25,12 @@ LAYER_DEFAULTS = {
     "mission_free_travel": True,
     "mission_start_end": True,
     "mission_transition_waypoints": True,
+    "mission_original_safe_polyline": False,
+    "mission_smoothing_control_points": False,
+    "mission_rejected_smoothing": False,
+    "safety_envelope": True,
+    "rejected_direct_transitions": False,
+    "min_clearance_markers": False,
 }
 
 
@@ -57,7 +63,7 @@ class LayerController:
         complete_visible = self.layer_visibility.get("mission_complete", True)
         for record in self.records:
             visible = self.layer_visibility.get(record.layer, True)
-            if record.layer in {"mission_scan", "mission_free_travel", "mission_start_end", "mission_transition_waypoints"}:
+            if record.layer.startswith("mission_"):
                 visible = visible and complete_visible
             if record.region_id is not None:
                 if self.only_selected_region and self.region_id is not None:
@@ -348,7 +354,7 @@ class ViewerWidget(QtWidgets.QWidget):
                 if len(seg) >= 2:
                     actor = self.interactor.add_mesh(
                         pv.lines_from_points(np.asarray(seg)),
-                        color="dodgerblue",
+                        color="blue",
                         line_width=5,
                         opacity=1.0,
                     )
@@ -359,10 +365,43 @@ class ViewerWidget(QtWidgets.QWidget):
                     actor = self.interactor.add_mesh(
                         pv.lines_from_points(np.asarray(seg)),
                         color="lightgray",
-                        line_width=2,
-                        opacity=0.3,
+                        line_width=1,
+                        opacity=0.35,
                     )
                     self.controller.add(ActorRecord(actor, "mission_free_travel"))
+
+            for polyline in result.summary.output_files.get("original_safe_polylines", []):
+                points = np.asarray(polyline)
+                if len(points) >= 2:
+                    actor = self.interactor.add_mesh(
+                        pv.lines_from_points(points),
+                        color="moccasin",
+                        line_width=1,
+                        opacity=0.45,
+                    )
+                    self.controller.add(ActorRecord(actor, "mission_original_safe_polyline"))
+
+            for candidate in result.summary.output_files.get("rejected_smoothing_candidates", []):
+                points = np.asarray(candidate)
+                if len(points) >= 2:
+                    actor = self.interactor.add_mesh(
+                        pv.lines_from_points(points),
+                        color="crimson",
+                        line_width=1,
+                        opacity=0.35,
+                    )
+                    self.controller.add(ActorRecord(actor, "mission_rejected_smoothing"))
+
+            control_points = result.summary.output_files.get("smoothing_control_points", [])
+            if control_points:
+                actor = self.interactor.add_mesh(
+                    pv.PolyData(np.asarray(control_points)),
+                    color="white",
+                    point_size=5,
+                    render_points_as_spheres=True,
+                    opacity=0.7,
+                )
+                self.controller.add(ActorRecord(actor, "mission_smoothing_control_points"))
                     
             start_pos = np.asarray(result.poses[0].position)
             end_pos = np.asarray(result.poses[-1].position)

@@ -60,7 +60,9 @@ def show_pipeline(result: PipelineResult, config: PipelineConfig) -> None:
     plotter = pv.Plotter()
     actors: dict[str, list] = {name: [] for name in (
         "cad", "coverage", "nominal", "scanner", "transition",
-        "connectors", "frames", "laser", "labels"
+        "connectors", "frames", "laser", "labels", "mission_scan",
+        "mission_free_travel", "mission_original_safe_polyline",
+        "mission_smoothing_control_points", "mission_rejected_smoothing"
     )}
     actors["cad"].append(
         plotter.add_mesh(coverage_poly, color="lightgray", opacity=0.35)
@@ -188,6 +190,73 @@ def show_pipeline(result: PipelineResult, config: PipelineConfig) -> None:
         )
         actor.SetVisibility(False)
         actors["laser"].append(actor)
+
+    is_continuous = len(result.poses) > 0 and all(pose.global_pose_id >= 0 for pose in result.poses)
+    if is_continuous:
+        scan_segments: list[list[np.ndarray]] = []
+        free_segments: list[list[np.ndarray]] = []
+        current_status = None
+        current_points: list[np.ndarray] = []
+        for pose in result.poses:
+            if pose.scan_status != current_status:
+                if current_points:
+                    (scan_segments if current_status == -1 else free_segments).append(current_points)
+                current_status = pose.scan_status
+                current_points = [pose.position]
+            else:
+                current_points.append(pose.position)
+        if current_points:
+            (scan_segments if current_status == -1 else free_segments).append(current_points)
+
+        for points in scan_segments:
+            if len(points) >= 2:
+                actors["mission_scan"].append(plotter.add_mesh(
+                    pv.lines_from_points(np.asarray(points)),
+                    color="blue",
+                    line_width=5,
+                    opacity=1.0,
+                ))
+        for points in free_segments:
+            if len(points) >= 2:
+                actors["mission_free_travel"].append(plotter.add_mesh(
+                    pv.lines_from_points(np.asarray(points)),
+                    color="lightgray",
+                    line_width=1,
+                    opacity=0.35,
+                ))
+        for polyline in result.summary.output_files.get("original_safe_polylines", []):
+            points = np.asarray(polyline)
+            if len(points) >= 2:
+                actor = plotter.add_mesh(
+                    pv.lines_from_points(points),
+                    color="moccasin",
+                    line_width=1,
+                    opacity=0.45,
+                )
+                actor.SetVisibility(False)
+                actors["mission_original_safe_polyline"].append(actor)
+        for candidate in result.summary.output_files.get("rejected_smoothing_candidates", []):
+            points = np.asarray(candidate)
+            if len(points) >= 2:
+                actor = plotter.add_mesh(
+                    pv.lines_from_points(points),
+                    color="crimson",
+                    line_width=1,
+                    opacity=0.35,
+                )
+                actor.SetVisibility(False)
+                actors["mission_rejected_smoothing"].append(actor)
+        control_points = result.summary.output_files.get("smoothing_control_points", [])
+        if control_points:
+            actor = plotter.add_mesh(
+                pv.PolyData(np.asarray(control_points)),
+                color="white",
+                point_size=5,
+                render_points_as_spheres=True,
+                opacity=0.7,
+            )
+            actor.SetVisibility(False)
+            actors["mission_smoothing_control_points"].append(actor)
 
     label_points = np.asarray([
         [record.center.x, record.center.y, record.center.z]

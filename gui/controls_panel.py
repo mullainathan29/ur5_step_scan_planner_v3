@@ -25,6 +25,9 @@ LAYER_LABELS = {
     "mission_free_travel": "Free-travel path",
     "mission_start_end": "Mission start/end",
     "mission_transition_waypoints": "Transition waypoints",
+    "mission_original_safe_polyline": "Original safe polyline",
+    "mission_smoothing_control_points": "Smoothing control points",
+    "mission_rejected_smoothing": "Rejected smoothing candidates",
     "safety_envelope": "Safety envelope",
     "rejected_direct_transitions": "Rejected direct transitions",
     "min_clearance_markers": "Minimum-clearance markers",
@@ -178,8 +181,16 @@ class ControlsPanel(QtWidgets.QScrollArea):
         layers = QtWidgets.QGroupBox("Viewer")
         layers_layout = QtWidgets.QVBoxLayout(layers)
         self.layer_checks = {}
+        hidden_layers = {
+            "focused",
+            "mission_original_safe_polyline",
+            "mission_smoothing_control_points",
+            "mission_rejected_smoothing",
+            "rejected_direct_transitions",
+            "min_clearance_markers",
+        }
         for key, label in LAYER_LABELS.items():
-            check = QtWidgets.QCheckBox(label); check.setChecked(key != "focused")
+            check = QtWidgets.QCheckBox(label); check.setChecked(key not in hidden_layers)
             check.toggled.connect(lambda value, layer=key: self.layer_changed.emit(layer, value))
             self.layer_checks[key] = check; layers_layout.addWidget(check)
         self.fit_cad_button = QtWidgets.QPushButton("Fit CAD")
