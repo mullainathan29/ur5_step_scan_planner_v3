@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 from time import perf_counter
 
+import numpy as np
 from PySide6 import QtCore, QtWidgets
 
 from gui.controls_panel import ControlsPanel
@@ -14,7 +15,7 @@ from gui.viewer_widget import ViewerWidget
 from app.staged_pipeline import GeometryCache, StageTimings
 from gui.workers import (
     CoverageWorker, FeatureRecoveryWorker, OptimisationWorker, PlanningWorker,
-    StepLoadWorker, ValidationWorker, WorkerResult,
+    StepLoadWorker, ValidationWorker, WorkerResult, GenerateMissionWorker,
 )
 from exporter import export_staged_trajectory
 
@@ -46,9 +47,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.geometry_cache = GeometryCache()
         self.log_view = QtWidgets.QPlainTextEdit()
         self.log_view.setReadOnly(True)
-        log_dock = QtWidgets.QDockWidget("Pipeline timings", self)
+        log_dock = QtWidgets.QDockWidget("Developer log", self)
         log_dock.setWidget(self.log_view)
         self.addDockWidget(QtCore.Qt.DockWidgetArea.BottomDockWidgetArea, log_dock)
+        log_dock.hide()
         self._create_menus()
         self._connect_controls()
 
@@ -58,8 +60,14 @@ class MainWindow(QtWidgets.QMainWindow):
         file_menu.addAction("Upload STEP", self.choose_step)
         file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
-        menu.addMenu("Generate").addAction("Generate paths", self.generate_paths)
-        menu.addMenu("Coverage").addAction("Run coverage", self.run_coverage)
+        developer_menu = menu.addMenu("Developer")
+        developer_menu.addAction("Generate paths", self.generate_paths)
+        developer_menu.addAction("Run coverage", self.run_coverage)
+        developer_menu.addAction("Generate recovery", self.generate_feature_recovery)
+        developer_menu.addAction("Optimise mission", self.optimise_mission)
+        developer_menu.addAction("Build continuous mission", self.build_continuous_mission)
+        developer_menu.addSeparator()
+        developer_menu.addAction("Show developer log", self.log_view.parentWidget().show)
         export_menu = menu.addMenu("Export")
         export_menu.addAction("Export CSV", self.export_csv)
         export_menu.addAction("Export JSON", self.export_json)
@@ -67,13 +75,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _connect_controls(self) -> None:
         c = self.controls
         c.upload_button.clicked.connect(self.choose_step)
-        c.generate_button.clicked.connect(self.generate_paths)
+        c.generate_button.clicked.connect(self.generate_mission)
         c.coverage_button.clicked.connect(self.run_coverage)
         c.recovery_button.clicked.connect(self.generate_feature_recovery)
         c.optimise_button.clicked.connect(self.optimise_mission)
         c.build_mission_button.clicked.connect(self.build_continuous_mission)
         c.validate_button.clicked.connect(self.validate_geometry)
-        c.export_mission_button.clicked.connect(self.export_mission)
         c.export_csv_button.clicked.connect(self.export_csv)
         c.export_json_button.clicked.connect(self.export_json)
         c.cancel_button.clicked.connect(self.cancel_worker)
@@ -105,6 +112,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._log_timings(payload.timings)
         self.model = model
         self.result = None
+        self.controls.set_export_enabled(False)
         counts = Counter(record.geometry_type.value for record in model.faces)
         stats = ", ".join(f"{name}: {count}" for name, count in sorted(counts.items()))
         self.controls.face_statistics_label.setText(f"Faces: {len(model.faces)} ({stats})")
@@ -112,10 +120,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self.controls.dimensions_label.setText(
             f"Dimensions: {dimensions[0]:.2f} × {dimensions[1]:.2f} × {dimensions[2]:.2f} mm"
         )
+        self.controls.stats_model_loaded.setText("Model loaded: yes")
         self.controls.set_selection_values([], [face.face_id for face in model.faces])
         self.viewer.show_model(model)
         self.planning_dirty = True
         self.statusBar().showMessage(f"Loaded {model.source_path.name}", 5000)
+
+    @QtCore.Slot()
+    def generate_mission(self) -> None:
+        if self.step_path is None:
+            self._message("Load a STEP model before generating a mission.")
+            return
+        try:
+            config = self.controls.planning_config(self.step_path)
+            config.validate()
+        except ValueError as exc:
+            self._message(str(exc))
+            return
+        self.config = config
+        self.controls.set_export_enabled(False)
+        self.controls.stats_validation.setText("Validation status: not run")
+        self._start_worker(
+            GenerateMissionWorker(config, self.geometry_cache),
+            self._result_updated,
+        )
 
     @QtCore.Slot()
     def generate_paths(self) -> None:
@@ -135,6 +163,7 @@ class MainWindow(QtWidgets.QMainWindow):
         result = payload.value
         self._log_timings(payload.timings)
         self.result = result
+        self.controls.set_export_enabled(False)
         self.planning_dirty = False
         regions = sorted({pose.region_id for pose in result.poses if pose.scan_enabled})
         self.controls.set_selection_values(regions, [face.face_id for face in result.model.faces])
@@ -281,10 +310,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 free_dist=free_dist,
                 total_dist=total_dist,
                 est_time=est_scan_time + est_free_time,
+                coverage_percent=result.summary.coverage_percent,
+                min_clearance=mission_report.get("minimum_mission_clearance") if mission_report else None,
+                detected_holes=len(result.hole_features),
                 report=mission_report
             )
         else:
             self.controls.reset_mission_stats()
+            if result.hole_features:
+                self.controls.stats_detected_holes.setText(f"Detected holes: {len(result.hole_features)}")
 
         # Display mission validation report if generated in the worker
         mission_report = result.summary.output_files.get("mission_validation_report") if result.summary.output_files else None
@@ -314,10 +348,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 msg.setText("Mission validation found errors:")
                 msg.setDetailedText(reasons_text)
             msg.exec()
+        self._update_export_state()
 
     @QtCore.Slot()
     def mark_planning_dirty(self) -> None:
         self.planning_dirty = True
+        self.controls.set_export_enabled(False)
         self.statusBar().showMessage("Planning parameters changed; generate paths to apply.")
 
     @QtCore.Slot()
@@ -394,9 +430,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage("Cancellation requested…")
 
     def export_csv(self) -> None:
+        if not self._export_ready():
+            self._message("Export is unavailable until a built mission has passed validation.")
+            return
         self._copy_export("trajectory_csv", "CSV files (*.csv)")
 
     def export_json(self) -> None:
+        if not self._export_ready():
+            self._message("Export is unavailable until a built mission has passed validation.")
+            return
         self._copy_export("trajectory_json", "JSON files (*.json)")
 
     @QtCore.Slot()
@@ -450,6 +492,34 @@ class MainWindow(QtWidgets.QMainWindow):
         if destination:
             shutil.copyfile(source, destination)
             self.statusBar().showMessage(f"Exported {destination}", 5000)
+
+    def _export_ready(self) -> bool:
+        if self.result is None:
+            return False
+        is_built = len(self.result.poses) > 0 and all(p.global_pose_id >= 0 for p in self.result.poses)
+        mission_report = (
+            self.result.summary.output_files.get("mission_validation_report")
+            if self.result.summary.output_files else None
+        )
+        no_failed_transition = all(
+            pose.scan_status != 0 or pose.transition_strategy != "failed"
+            for pose in self.result.poses
+        )
+        return bool(
+            is_built
+            and self.result.geometry_validation is not None
+            and mission_report
+            and mission_report.get("valid")
+            and no_failed_transition
+        )
+
+    def _update_export_state(self) -> None:
+        ready = self._export_ready()
+        self.controls.set_export_enabled(ready)
+        if ready:
+            self.statusBar().showMessage("Mission validated; export is available.", 5000)
+        elif self.result is not None:
+            self.statusBar().showMessage("Export locked until mission validation succeeds.", 5000)
 
     def _message(self, text: str) -> None:
         self.statusBar().showMessage(text, 5000)

@@ -280,3 +280,50 @@ class BuildMissionWorker(TaskWorker):
         
         self.progress.emit(100, "Continuous mission built")
         return WorkerResult(result, timings)
+
+
+class GenerateMissionWorker(TaskWorker):
+    """Run the full operator mission workflow in one background task."""
+
+    def __init__(self, config, cache: GeometryCache) -> None:
+        super().__init__()
+        self.config, self.cache = config, cache
+
+    def execute(self):
+        timings = StageTimings()
+        self.progress.emit(5, "Generating scan paths")
+        result, stage_timings = generate_fast_paths(
+            self.cache,
+            self.config,
+            lambda value, message: self.progress.emit(min(20, int(value * 0.2)), message),
+            self.check_cancelled,
+        )
+        timings.seconds.update(stage_timings.seconds)
+        self.check_cancelled()
+
+        self.progress.emit(22, "Running coverage")
+        coverage_payload = CoverageWorker(result, self.config, self.cache).execute()
+        result = coverage_payload.value
+        timings.seconds.update(coverage_payload.timings.seconds)
+        self.check_cancelled()
+
+        self.progress.emit(45, "Generating recovery")
+        recovery_payload = FeatureRecoveryWorker(result, self.config).execute()
+        result = recovery_payload.value
+        timings.seconds.update(recovery_payload.timings.seconds)
+        self.check_cancelled()
+
+        self.progress.emit(62, "Optimising mission")
+        optimisation_payload = OptimisationWorker(result, self.config).execute()
+        result = optimisation_payload.value
+        timings.seconds.update(optimisation_payload.timings.seconds)
+        self.check_cancelled()
+
+        self.progress.emit(80, "Building safe continuous mission")
+        build_payload = BuildMissionWorker(result, self.config).execute()
+        result = build_payload.value
+        timings.seconds.update(build_payload.timings.seconds)
+        self.check_cancelled()
+
+        self.progress.emit(100, "Mission generated")
+        return WorkerResult(result, timings)

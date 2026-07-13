@@ -92,31 +92,54 @@ viewer:
   laser_footprint_stride: 20
 
 transition_planning:
+  # Minimum scanner/tool-envelope separation during free travel.
   safety_clearance_mm: 80.0
+  # Extra global-Z clearance used for top and bottom traverse routes.
   vertical_clearance_mm: 100.0
+  # Approximate scanner/tool radius added around the point trajectory.
   tool_envelope_radius_mm: 60.0
+  # Safety envelope type: "obb" for oriented box, "aabb" for axis-aligned box.
   envelope_type: "obb"
+  # Enables collision-aware route planning between scan blocks.
   enable_safe_traverse: true
+  # Forces top-clearance routing when side routing is also available.
   prefer_top_clearance: false
+  # Shows the transparent safety envelope layer in the viewer.
   show_safety_envelope: true
+  # Relative cost of orientation changes in transition planning.
   orientation_weight: 1.0
+  # Route cost added for vertical motion.
   vertical_motion_penalty: 50.0
+  # Route cost added for graph turns and extra waypoints.
   corner_penalty: 20.0
+  # Route cost that biases paths farther from the CAD mesh.
   proximity_penalty: 10.0
+  # Density hint for safety-envelope waypoint graph construction.
   graph_waypoint_density: 2.0
+  # Distance between segment samples for collision/clearance validation.
   collision_sampling_interval_mm: 5.0
 
 free_travel_smoothing:
+  # Enables smoothing for consecutive free-travel poses only.
   enabled: true
+  # Preferred curve method before falling back to Bezier, fillets, or polyline.
   method: "catmull_rom"
+  # Initial corner blend radius attempted before clearance reduction.
   nominal_blend_radius_mm: 60.0
+  # Smallest corner blend radius allowed during automatic retries.
   minimum_blend_radius_mm: 10.0
+  # Target spacing for generated free-travel poses.
   sample_spacing_mm: 10.0
+  # Maximum allowed deviation from the original safe route waypoints.
   maximum_route_deviation_mm: 50.0
+  # Number of reduced-radius attempts before falling back.
   maximum_retries: 5
 
 orientation_smoothing:
+  # Enables quaternion SLERP for free-travel orientation changes.
   enabled: true
+  # Maximum orientation change between neighbouring free-travel poses.
   maximum_step_deg: 5.0
+  # Fraction of each free-travel route used for gradual interpolation.
   interpolation_window_fraction: 0.8
 
