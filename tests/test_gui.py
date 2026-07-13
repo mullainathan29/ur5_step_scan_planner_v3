@@ -24,6 +24,33 @@ def test_control_defaults() -> None:
     controls = ControlsPanel()
     config = controls.planning_config(Path("model.step"))
     assert config.planning_mode == "simple_view_based"
+    assert config.planning_quality == "fast_preview"
+    assert config.standard_laser_ray_count == 21
+    assert config.final_laser_ray_count == 101
+    assert config.hole_target_coverage_percent == 85.0
+    assert config.maximum_views_per_hole == 2
+    assert config.hole_candidate_tilt_angles_deg == (25.0, 40.0)
+    assert config.hole_candidate_azimuth_count == 2
+    assert config.orbital_hole_mode == "disabled"
+    assert config.minimum_candidate_gain_percent == 1.0
+    assert config.maximum_optional_sweeps == 3
+    assert config.total_target_coverage_percent == 90.0
+
+
+def test_standard_quality_recovery_profile() -> None:
+    _application()
+    controls = ControlsPanel()
+    controls.planning_quality.setCurrentIndex(
+        controls.planning_quality.findData("standard")
+    )
+    config = controls.planning_config(Path("model.step"))
+    assert config.hole_target_coverage_percent == 90.0
+    assert config.maximum_views_per_hole == 4
+    assert config.hole_candidate_tilt_angles_deg == (20.0, 35.0, 50.0)
+    assert config.hole_candidate_azimuth_count == 4
+    assert config.orbital_hole_mode == "adaptive"
+    assert config.maximum_optional_sweeps == 5
+    assert config.minimum_candidate_gain_percent == 0.5
     assert config.surface_types == ("plane", "cylinder")
     assert config.lane_spacing_mm == 20.0
     assert config.travel_spacing_mm == 5.0

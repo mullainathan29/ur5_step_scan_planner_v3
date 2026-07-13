@@ -10,6 +10,7 @@ from coverage import CoverageResult
 from geometry_validation import GeometryValidationResult
 from planners.base import ConicalPlan, CylindricalPlan, PlanarRasterPlan, Pose, SphericalPlan
 from planners.view_based import ViewSweep
+from features import HoleCoverageReport, HoleFeature
 
 
 @dataclass(frozen=True)
@@ -37,8 +38,12 @@ class PipelineResult:
     conical_plans: tuple[ConicalPlan, ...]
     spherical_plans: tuple[SphericalPlan, ...]
     poses: tuple[Pose, ...]
-    coverage: CoverageResult
-    baseline_coverage: CoverageResult
+    coverage: CoverageResult | None
+    baseline_coverage: CoverageResult | None
     geometry_validation: GeometryValidationResult | None
     summary: PipelineSummary
     sweeps: tuple[ViewSweep, ...] = ()
+    hole_features: tuple[HoleFeature, ...] = ()
+    hole_coverage_reports: tuple[HoleCoverageReport, ...] = ()
+    optimisation_report: object | None = None
+    recovery_candidates: tuple[object, ...] = ()

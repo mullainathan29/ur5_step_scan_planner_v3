@@ -120,7 +120,10 @@ def _bounds(model: CadModel) -> tuple[np.ndarray, np.ndarray]:
     )
 
 
-def _principal_sweeps(model: CadModel, settings: ViewSweepSettings) -> list[ViewSweep]:
+def _principal_sweeps(
+    model: CadModel, settings: ViewSweepSettings, cancellation_check=None
+) -> list[ViewSweep]:
+    cancellation_check = cancellation_check or (lambda: None)
     minimum, maximum = _bounds(model)
     centre = 0.5 * (minimum + maximum)
     definitions = (
@@ -133,6 +136,7 @@ def _principal_sweeps(model: CadModel, settings: ViewSweepSettings) -> list[View
     sweeps: list[ViewSweep] = []
     sweep_id = 0
     for view, measurement, normal_axis, enabled in definitions:
+        cancellation_check()
         if not enabled:
             continue
         tangent_axes = [axis for axis in range(3) if axis != normal_axis]
@@ -155,6 +159,7 @@ def _principal_sweeps(model: CadModel, settings: ViewSweepSettings) -> list[View
         )
         envelope = maximum[normal_axis] if measurement[normal_axis] < 0 else minimum[normal_axis]
         for pass_index, lane in enumerate(centres):
+            cancellation_check()
             start, end = minimum[travel_axis_index], maximum[travel_axis_index]
             travel_sign = float(travel[travel_axis_index])
             if travel_sign < 0:
@@ -311,3 +316,24 @@ class ViewBasedSweepPlanner:
         return ViewBasedMission(
             tuple(sweeps), principal, current, contributions, usable_fractions
         )
+
+
+def generate_preview_sweeps(
+    model: CadModel,
+    settings: ViewSweepSettings,
+    *,
+    cancellation_check=None,
+) -> tuple[ViewSweep, ...]:
+    """Generate unchanged sweep mathematics without optical simulation."""
+
+    settings.validate()
+    cancellation_check = cancellation_check or (lambda: None)
+    cancellation_check()
+    sweeps = _principal_sweeps(model, settings, cancellation_check)
+    cancellation_check()
+    if settings.isometric_recovery and settings.maximum_isometric_sweeps > 0:
+        # Preview generation is deliberately optical-free. It displays the
+        # configured upper recovery sweep; Run coverage decides its usefulness.
+        sweeps.append(_isometric_candidate(model, settings, len(sweeps), 0))
+    cancellation_check()
+    return tuple(sweeps)

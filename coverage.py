@@ -105,6 +105,7 @@ def detect_exterior_face_ids(
     model: CadModel,
     *,
     probes_per_face: int = 3,
+    cancellation_check=None,
 ) -> frozenset[int]:
     """Identify faces directly reachable from outside along exact OCC normals.
 
@@ -119,8 +120,10 @@ def detect_exterior_face_ids(
     triangle_centers = np.asarray(mesh.triangles_center, dtype=np.float64)
     clearance = float(np.linalg.norm(mesh.extents)) * 2.0 + 1.0
     exterior: set[int] = set()
+    cancellation_check = cancellation_check or (lambda: None)
 
     for record, topods_face in zip(model.faces, model.topods_faces):
+        cancellation_check()
         triangle_ids = np.flatnonzero(mapping == record.face_id)
         if not len(triangle_ids):
             continue
@@ -199,10 +202,14 @@ def validate_coverage(
     settings: CoverageSettings | None = None,
     *,
     exterior_face_ids: frozenset[int] | None = None,
+    cancellation_check=None,
+    progress_callback=None,
 ) -> CoverageResult:
     """Cast pose-oriented laser rays and accumulate triangle-area coverage."""
 
     settings = settings or CoverageSettings()
+    cancellation_check = cancellation_check or (lambda: None)
+    progress_callback = progress_callback or (lambda *_: None)
     settings.validate()
     mesh = model.validation_mesh.mesh
     mapping = model.validation_mesh.triangle_face_ids
@@ -212,7 +219,8 @@ def validate_coverage(
 
     if exterior_face_ids is None:
         exterior_face_ids = detect_exterior_face_ids(
-            model, probes_per_face=settings.exterior_probe_count_per_face
+            model, probes_per_face=settings.exterior_probe_count_per_face,
+            cancellation_check=cancellation_check,
         )
     all_face_ids = frozenset(record.face_id for record in model.faces)
     internal_face_ids = all_face_ids - exterior_face_ids
@@ -241,7 +249,10 @@ def validate_coverage(
     segment_ids = {pose.segment_id for pose in scan_poses}
     valid_segment_ids: set[int] = set()
 
-    for pose in scan_poses:
+    for pose_index, pose in enumerate(scan_poses):
+        cancellation_check()
+        if pose_index % 25 == 0:
+            progress_callback(pose_index, len(scan_poses))
         rotation = Rotation.from_quat(pose.quaternion_xyzw)
         laser_axis = rotation.apply([1.0, 0.0, 0.0])
         ray_direction = rotation.apply([0.0, 0.0, 1.0])

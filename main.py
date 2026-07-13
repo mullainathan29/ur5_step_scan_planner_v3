@@ -119,8 +119,9 @@ def _print_summary(summary) -> None:
     for name, path in summary.output_files.items():
         print(f"    {name}: {path}")
     print(
-        "\nSafety: no mission optimisation, UR5 IK, ROS 2, or collision "
-        "checking has been performed."
+        "\nSafety: optical mission selection is not robot feasibility. No UR5 "
+        "IK, joint-limit, MoveIt2, ROS 2, or complete collision checking has "
+        "been performed."
     )
 
 

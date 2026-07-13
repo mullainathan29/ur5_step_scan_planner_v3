@@ -1,175 +1,60 @@
 {
   "summary": {
     "total_step_faces": 315,
-    "selected_planar_faces": 25,
-    "selected_cylindrical_faces": 54,
+    "selected_planar_faces": 0,
+    "selected_cylindrical_faces": 0,
     "selected_conical_faces": 0,
     "selected_spherical_faces": 0,
     "skipped_faces_by_reason": {
-      "below minimum face area": [
+      "view-based mission does not select individual faces": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
         29,
         30,
         31,
+        32,
         33,
         34,
         35,
         36,
         37,
-        47,
-        67,
-        101,
-        104,
-        113,
-        121,
-        123,
-        127,
-        130,
-        243,
-        244,
-        245,
-        246,
-        247,
-        248,
-        274,
-        284,
-        286,
-        290,
-        292,
-        296,
-        297,
-        301,
-        303
-      ],
-      "internal surface excluded": [
-        6,
-        162,
-        164,
-        166,
-        168,
-        190,
-        197,
-        221,
-        223,
-        225,
-        227,
-        312
-      ],
-      "surface type not requested": [
-        0,
-        1,
-        2,
-        7,
-        8,
-        11,
-        12,
-        17,
-        24,
-        163,
-        165,
-        167,
-        169,
-        174,
-        182,
-        187,
-        194,
-        195,
-        201,
-        205,
-        210,
-        211,
-        213,
-        220,
-        222,
-        224,
-        226,
-        275,
-        276,
-        277,
-        278,
-        279,
-        280,
-        281,
-        282,
-        307,
-        310,
-        314
-      ],
-      "unsupported surface type: BSPLINE": [
-        41,
-        46,
-        57,
-        58,
-        60,
-        61,
-        62,
-        70,
-        71,
-        73,
-        74,
-        77,
-        79,
-        88,
-        92,
-        95,
-        99,
-        102,
-        105,
-        107,
-        111,
-        115,
-        119,
-        122,
-        126,
-        129,
-        147,
-        148,
-        149,
-        152,
-        156,
-        160,
-        191,
-        192,
-        193,
-        196,
-        217,
-        218,
-        219,
-        231,
-        235,
-        239,
-        259,
-        261,
-        262,
-        264,
-        265,
-        266,
-        267,
-        270,
-        272,
-        273
-      ],
-      "unsupported surface type: TORUS": [
-        3,
-        4,
-        5,
-        9,
-        10,
-        13,
-        14,
-        18,
-        19,
-        21,
-        22,
-        25,
-        26,
-        27,
         38,
         39,
         40,
+        41,
         42,
         43,
         44,
         45,
+        46,
+        47,
         48,
         49,
         50,
@@ -178,27 +63,82 @@
         53,
         54,
         55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
         66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
         75,
+        76,
+        77,
+        78,
+        79,
+        80,
         81,
         82,
+        83,
+        84,
         85,
         86,
+        87,
+        88,
+        89,
         90,
+        91,
+        92,
+        93,
         94,
+        95,
         96,
         97,
+        98,
+        99,
         100,
+        101,
+        102,
         103,
+        104,
+        105,
         106,
+        107,
         108,
         109,
+        110,
+        111,
         112,
+        113,
         114,
+        115,
         116,
         117,
+        118,
+        119,
         120,
+        121,
+        122,
+        123,
+        124,
         125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
         132,
         133,
         134,
@@ -208,56 +148,187 @@
         138,
         139,
         140,
+        141,
+        142,
+        143,
         144,
         145,
         146,
+        147,
+        148,
+        149,
         150,
         151,
+        152,
+        153,
         154,
         155,
+        156,
+        157,
         158,
         159,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
         171,
+        172,
         173,
+        174,
         175,
         176,
+        177,
         178,
         179,
+        180,
         181,
+        182,
         183,
+        184,
         185,
+        186,
+        187,
         188,
+        189,
+        190,
+        191,
+        192,
+        193,
+        194,
+        195,
+        196,
+        197,
         198,
         199,
         200,
+        201,
+        202,
         203,
         204,
+        205,
         206,
+        207,
         208,
         209,
+        210,
+        211,
+        212,
+        213,
         214,
+        215,
         216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        227,
         228,
+        229,
         230,
+        231,
         232,
+        233,
         234,
+        235,
         236,
+        237,
         238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
         250,
+        251,
         252,
         253,
+        254,
         255,
         256,
         257,
+        258,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266,
+        267,
+        268,
+        269,
+        270,
+        271,
+        272,
+        273,
+        274,
+        275,
+        276,
+        277,
+        278,
+        279,
+        280,
+        281,
+        282,
+        283,
+        284,
+        285,
+        286,
+        287,
+        288,
+        289,
+        290,
+        291,
+        292,
+        293,
+        294,
+        295,
+        296,
+        297,
+        298,
+        299,
+        300,
+        301,
+        302,
+        303,
+        304,
+        305,
         306,
-        313
+        307,
+        308,
+        309,
+        310,
+        311,
+        312,
+        313,
+        314
       ]
     },
-    "generated_scan_regions": 72,
-    "generated_scan_segments": 126,
-    "scan_pose_count": 462,
-    "total_scan_path_length_mm": 1882.3174563143907,
-    "coverage_percent": 18.058075746099977,
+    "generated_scan_regions": 6,
+    "generated_scan_segments": 6,
+    "scan_pose_count": 177,
+    "total_scan_path_length_mm": 2775.704751514846,
+    "coverage_percent": 13.07928875599107,
     "invalid_segment_count": 0,
     "output_files": {
       "trajectory_csv": "/home/mullai/ur5_step_scan_planner_v3/479 -Part model_output/trajectory.csv",
@@ -266,714 +337,67 @@
       "validation_report_json": "/home/mullai/ur5_step_scan_planner_v3/479 -Part model_output/validation_report.json"
     }
   },
-  "coverage_counters": {
-    "scan_pose_count": 462,
-    "ray_count": 9702,
-    "first_hit_count": 2672,
-    "valid_hit_count": 2239,
-    "invalid_range_hit_count": 0,
-    "invalid_incidence_hit_count": 355,
-    "valid_segment_ids": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15,
-      16,
-      17,
-      18,
-      19,
-      20,
-      21,
-      22,
-      23,
-      24,
-      25,
-      26,
-      27,
-      28,
-      29,
-      30,
-      31,
-      32,
-      33,
-      34,
-      35,
-      36,
-      37,
-      38,
-      39,
-      40,
-      41,
-      42,
-      43,
-      44,
-      45,
-      46,
-      47,
-      48,
-      49,
-      50,
-      51,
-      52,
-      53,
-      54,
-      55,
-      56,
-      57,
-      58,
-      59,
-      60,
-      61,
-      62,
-      63,
-      64,
-      65,
-      66,
-      67,
-      68,
-      69,
-      70,
-      71,
-      72,
-      73,
-      74,
-      75,
-      76,
-      77,
-      78,
-      79,
-      80,
-      81,
-      82,
-      83,
-      84,
-      85,
-      86,
-      87,
-      88,
-      89,
-      90,
-      91,
-      92,
-      93,
-      94,
-      95,
-      96,
-      97,
-      98,
-      99,
-      100,
-      101,
-      102,
-      103,
-      104,
-      105,
-      106,
-      107,
-      108,
-      109,
-      110,
-      111,
-      112,
-      113,
-      114,
-      115,
-      116,
-      117,
-      118,
-      119,
-      120,
-      121,
-      122,
-      123,
-      124,
-      125
-    ],
-    "invalid_segment_ids": []
+  "planning_mode": "simple_view_based",
+  "sweep_order": [
+    "top",
+    "front",
+    "right",
+    "back",
+    "left",
+    "isometric_1"
+  ],
+  "coverage_contribution_area_mm2": {
+    "top": 2095.3540849352516,
+    "front": 277.4838268110413,
+    "right": 312.92452856025017,
+    "back": 271.82092105153265,
+    "left": 285.0443924996705,
+    "isometric": 539.5167761144769
+  },
+  "usable_laser_line_fraction": {
+    "top": 0.22789115646258504,
+    "front": 0.11904761904761904,
+    "right": 0.11904761904761904,
+    "back": 0.11904761904761904,
+    "left": 0.11904761904761904,
+    "isometric_1": 0.3204633204633205
   },
   "surface_coverage": {
     "planar_faces": {
       "eligible_area_mm2": 7768.275508387829,
-      "covered_area_mm2": 3148.478579562081,
-      "visible_invalid_area_mm2": 16.559377819198225,
-      "uncovered_area_mm2": 4603.23755100655,
-      "coverage_percent": 40.529955151082085
+      "covered_area_mm2": 2592.2370610178195,
+      "visible_invalid_area_mm2": 0.0,
+      "uncovered_area_mm2": 5176.03844737001,
+      "coverage_percent": 33.36953044750846
     },
     "cylindrical_faces": {
       "eligible_area_mm2": 9476.98345901302,
-      "covered_area_mm2": 1923.6554720612125,
-      "visible_invalid_area_mm2": 162.86937354843027,
-      "uncovered_area_mm2": 7390.458613403376,
-      "coverage_percent": 20.298183281429424
+      "covered_area_mm2": 1160.8125705808368,
+      "visible_invalid_area_mm2": 207.4755645938252,
+      "uncovered_area_mm2": 8108.6953238383585,
+      "coverage_percent": 12.248755900031187
     },
     "conical_faces": {
       "eligible_area_mm2": 1531.6395620626547,
-      "covered_area_mm2": 50.62738956102266,
-      "visible_invalid_area_mm2": 18.74037407475416,
-      "uncovered_area_mm2": 1462.271798426878,
-      "coverage_percent": 3.305437572586784
+      "covered_area_mm2": 0.8921262890617621,
+      "visible_invalid_area_mm2": 3.2126353665023455,
+      "uncovered_area_mm2": 1527.5348004070906,
+      "coverage_percent": 0.0582464903074414
     },
     "freeform_faces": {
       "eligible_area_mm2": 10140.15193507176,
-      "covered_area_mm2": 99.10143523941801,
-      "visible_invalid_area_mm2": 21.085155847632606,
-      "uncovered_area_mm2": 10019.96534398471,
-      "coverage_percent": 0.9773170646157253
+      "covered_area_mm2": 28.202772084505785,
+      "visible_invalid_area_mm2": 17.161613959008132,
+      "uncovered_area_mm2": 10094.787549028248,
+      "coverage_percent": 0.27812967956585355
     },
     "total_exterior_surface": {
       "eligible_area_mm2": 28917.050464535263,
-      "covered_area_mm2": 5221.862876423734,
-      "visible_invalid_area_mm2": 219.25428129001529,
-      "uncovered_area_mm2": 23475.933306821516,
-      "coverage_percent": 18.058075746099977
+      "covered_area_mm2": 3782.1445299722245,
+      "visible_invalid_area_mm2": 227.8498139193357,
+      "uncovered_area_mm2": 24907.0561206437,
+      "coverage_percent": 13.07928875599107
     }
   },
-  "region_merging": {
-    "planar_coverage_before_percent": 37.71498416908983,
-    "planar_coverage_after_percent": 37.89321467030165,
-    "cylindrical_coverage_before_percent": 18.7871627757869,
-    "cylindrical_coverage_after_percent": 18.375285333169376,
-    "scan_path_length_mm": 1882.3174563143907,
-    "scan_segment_count": 126,
-    "scan_pose_count": 462,
-    "estimated_reduction_in_approach_retract_motions": 60,
-    "planar_regions": [
-      {
-        "region_id": 0,
-        "member_face_ids": [
-          28
-        ],
-        "total_area_mm2": 4234.094714311166
-      },
-      {
-        "region_id": 1,
-        "member_face_ids": [
-          63
-        ],
-        "total_area_mm2": 43.08615128388332
-      },
-      {
-        "region_id": 2,
-        "member_face_ids": [
-          65
-        ],
-        "total_area_mm2": 43.08611707861273
-      },
-      {
-        "region_id": 3,
-        "member_face_ids": [
-          76
-        ],
-        "total_area_mm2": 43.08615127288207
-      },
-      {
-        "region_id": 4,
-        "member_face_ids": [
-          87
-        ],
-        "total_area_mm2": 43.08615130009593
-      },
-      {
-        "region_id": 5,
-        "member_face_ids": [
-          91
-        ],
-        "total_area_mm2": 43.08615127998602
-      },
-      {
-        "region_id": 6,
-        "member_face_ids": [
-          153
-        ],
-        "total_area_mm2": 43.08612029679728
-      },
-      {
-        "region_id": 7,
-        "member_face_ids": [
-          157
-        ],
-        "total_area_mm2": 43.08611890852737
-      },
-      {
-        "region_id": 8,
-        "member_face_ids": [
-          161
-        ],
-        "total_area_mm2": 43.086122040072254
-      },
-      {
-        "region_id": 9,
-        "member_face_ids": [
-          170
-        ],
-        "total_area_mm2": 934.2719744195285
-      },
-      {
-        "region_id": 10,
-        "member_face_ids": [
-          184
-        ],
-        "total_area_mm2": 253.65461416587357
-      },
-      {
-        "region_id": 11,
-        "member_face_ids": [
-          189
-        ],
-        "total_area_mm2": 101.99956748650649
-      },
-      {
-        "region_id": 12,
-        "member_face_ids": [
-          249
-        ],
-        "total_area_mm2": 291.93363763363294
-      },
-      {
-        "region_id": 13,
-        "member_face_ids": [
-          251
-        ],
-        "total_area_mm2": 291.933443345574
-      },
-      {
-        "region_id": 14,
-        "member_face_ids": [
-          254
-        ],
-        "total_area_mm2": 291.9334444851771
-      },
-      {
-        "region_id": 15,
-        "member_face_ids": [
-          269
-        ],
-        "total_area_mm2": 291.93341272064487
-      },
-      {
-        "region_id": 16,
-        "member_face_ids": [
-          283
-        ],
-        "total_area_mm2": 40.4391558878
-      },
-      {
-        "region_id": 17,
-        "member_face_ids": [
-          287
-        ],
-        "total_area_mm2": 40.439155879512164
-      },
-      {
-        "region_id": 18,
-        "member_face_ids": [
-          289
-        ],
-        "total_area_mm2": 40.4391558878
-      },
-      {
-        "region_id": 19,
-        "member_face_ids": [
-          293
-        ],
-        "total_area_mm2": 40.439155879512164
-      },
-      {
-        "region_id": 20,
-        "member_face_ids": [
-          295
-        ],
-        "total_area_mm2": 40.43915588780001
-      },
-      {
-        "region_id": 21,
-        "member_face_ids": [
-          298
-        ],
-        "total_area_mm2": 40.43915587951215
-      },
-      {
-        "region_id": 22,
-        "member_face_ids": [
-          300
-        ],
-        "total_area_mm2": 40.43915587971218
-      },
-      {
-        "region_id": 23,
-        "member_face_ids": [
-          304
-        ],
-        "total_area_mm2": 40.43915587951215
-      },
-      {
-        "region_id": 24,
-        "member_face_ids": [
-          311
-        ],
-        "total_area_mm2": 346.1478571703922
-      }
-    ],
-    "cylindrical_regions": [
-      {
-        "region_id": 25,
-        "member_face_ids": [
-          15,
-          16
-        ],
-        "total_area_mm2": 788.241457775501
-      },
-      {
-        "region_id": 26,
-        "member_face_ids": [
-          20,
-          309
-        ],
-        "total_area_mm2": 422.9544877002013
-      },
-      {
-        "region_id": 27,
-        "member_face_ids": [
-          23,
-          308
-        ],
-        "total_area_mm2": 748.5158657324245
-      },
-      {
-        "region_id": 28,
-        "member_face_ids": [
-          32
-        ],
-        "total_area_mm2": 204.77918994652356
-      },
-      {
-        "region_id": 29,
-        "member_face_ids": [
-          56
-        ],
-        "total_area_mm2": 63.362905298234814
-      },
-      {
-        "region_id": 30,
-        "member_face_ids": [
-          59
-        ],
-        "total_area_mm2": 63.362905298554196
-      },
-      {
-        "region_id": 31,
-        "member_face_ids": [
-          64
-        ],
-        "total_area_mm2": 63.362904906682076
-      },
-      {
-        "region_id": 32,
-        "member_face_ids": [
-          68
-        ],
-        "total_area_mm2": 37.40783794167557
-      },
-      {
-        "region_id": 33,
-        "member_face_ids": [
-          69
-        ],
-        "total_area_mm2": 63.362905298554196
-      },
-      {
-        "region_id": 34,
-        "member_face_ids": [
-          72
-        ],
-        "total_area_mm2": 63.36290529854874
-      },
-      {
-        "region_id": 35,
-        "member_face_ids": [
-          78
-        ],
-        "total_area_mm2": 35.49380905493924
-      },
-      {
-        "region_id": 36,
-        "member_face_ids": [
-          80
-        ],
-        "total_area_mm2": 35.493662044117755
-      },
-      {
-        "region_id": 37,
-        "member_face_ids": [
-          83
-        ],
-        "total_area_mm2": 62.63127321715969
-      },
-      {
-        "region_id": 38,
-        "member_face_ids": [
-          84
-        ],
-        "total_area_mm2": 35.4937811252036
-      },
-      {
-        "region_id": 39,
-        "member_face_ids": [
-          89
-        ],
-        "total_area_mm2": 35.49380904809749
-      },
-      {
-        "region_id": 40,
-        "member_face_ids": [
-          93
-        ],
-        "total_area_mm2": 35.49366204813413
-      },
-      {
-        "region_id": 41,
-        "member_face_ids": [
-          98
-        ],
-        "total_area_mm2": 62.631273216688435
-      },
-      {
-        "region_id": 42,
-        "member_face_ids": [
-          110
-        ],
-        "total_area_mm2": 62.63127321715969
-      },
-      {
-        "region_id": 43,
-        "member_face_ids": [
-          118
-        ],
-        "total_area_mm2": 62.63127321715969
-      },
-      {
-        "region_id": 44,
-        "member_face_ids": [
-          124
-        ],
-        "total_area_mm2": 37.407837941957006
-      },
-      {
-        "region_id": 45,
-        "member_face_ids": [
-          128
-        ],
-        "total_area_mm2": 37.407837941957006
-      },
-      {
-        "region_id": 46,
-        "member_face_ids": [
-          131
-        ],
-        "total_area_mm2": 37.407837941957006
-      },
-      {
-        "region_id": 47,
-        "member_face_ids": [
-          141
-        ],
-        "total_area_mm2": 37.407837932372004
-      },
-      {
-        "region_id": 48,
-        "member_face_ids": [
-          142
-        ],
-        "total_area_mm2": 37.407837932372004
-      },
-      {
-        "region_id": 49,
-        "member_face_ids": [
-          143
-        ],
-        "total_area_mm2": 37.407837932372
-      },
-      {
-        "region_id": 50,
-        "member_face_ids": [
-          172,
-          215
-        ],
-        "total_area_mm2": 206.82882135276304
-      },
-      {
-        "region_id": 51,
-        "member_face_ids": [
-          177,
-          212
-        ],
-        "total_area_mm2": 148.20414884629545
-      },
-      {
-        "region_id": 52,
-        "member_face_ids": [
-          180,
-          207
-        ],
-        "total_area_mm2": 1685.694866551208
-      },
-      {
-        "region_id": 53,
-        "member_face_ids": [
-          186,
-          202
-        ],
-        "total_area_mm2": 2189.9291965126167
-      },
-      {
-        "region_id": 54,
-        "member_face_ids": [
-          229
-        ],
-        "total_area_mm2": 62.63127321857339
-      },
-      {
-        "region_id": 55,
-        "member_face_ids": [
-          233
-        ],
-        "total_area_mm2": 62.63127322045838
-      },
-      {
-        "region_id": 56,
-        "member_face_ids": [
-          237
-        ],
-        "total_area_mm2": 62.63127322045838
-      },
-      {
-        "region_id": 57,
-        "member_face_ids": [
-          240
-        ],
-        "total_area_mm2": 35.49371541014185
-      },
-      {
-        "region_id": 58,
-        "member_face_ids": [
-          241
-        ],
-        "total_area_mm2": 35.493715529969506
-      },
-      {
-        "region_id": 59,
-        "member_face_ids": [
-          242
-        ],
-        "total_area_mm2": 35.493715522329026
-      },
-      {
-        "region_id": 60,
-        "member_face_ids": [
-          258
-        ],
-        "total_area_mm2": 62.631273215142045
-      },
-      {
-        "region_id": 61,
-        "member_face_ids": [
-          260
-        ],
-        "total_area_mm2": 63.36289486727806
-      },
-      {
-        "region_id": 62,
-        "member_face_ids": [
-          263
-        ],
-        "total_area_mm2": 63.36289486727806
-      },
-      {
-        "region_id": 63,
-        "member_face_ids": [
-          268
-        ],
-        "total_area_mm2": 37.407837941957006
-      },
-      {
-        "region_id": 64,
-        "member_face_ids": [
-          271
-        ],
-        "total_area_mm2": 63.36289486759227
-      },
-      {
-        "region_id": 65,
-        "member_face_ids": [
-          285
-        ],
-        "total_area_mm2": 204.78056898708007
-      },
-      {
-        "region_id": 66,
-        "member_face_ids": [
-          288
-        ],
-        "total_area_mm2": 129.57432573489544
-      },
-      {
-        "region_id": 67,
-        "member_face_ids": [
-          291
-        ],
-        "total_area_mm2": 204.7813607478348
-      },
-      {
-        "region_id": 68,
-        "member_face_ids": [
-          294
-        ],
-        "total_area_mm2": 129.57432573441866
-      },
-      {
-        "region_id": 69,
-        "member_face_ids": [
-          299
-        ],
-        "total_area_mm2": 129.5743257349732
-      },
-      {
-        "region_id": 70,
-        "member_face_ids": [
-          302
-        ],
-        "total_area_mm2": 204.7813607121599
-      },
-      {
-        "region_id": 71,
-        "member_face_ids": [
-          305
-        ],
-        "total_area_mm2": 129.5743257305332
-      }
-    ]
-  },
-  "continuous_region_paths": {
-    "old_segment_count": 153,
-    "new_region_level_segment_count": 126,
-    "old_approach_retract_count": 306,
-    "new_approach_retract_count": 252,
-    "lane_transition_count": 27,
-    "transition_distance_mm": 705.8715448169362,
-    "estimated_cycle_time_reduction_percent": 17.647058823529417
-  },
-  "segment_rejections": [],
   "safety_notice": "Cartesian planning only; no UR5 IK, collision checking, ROS 2, or mission optimisation has been performed."
 }

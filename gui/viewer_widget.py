@@ -19,6 +19,7 @@ LAYER_DEFAULTS = {
     "cad": True, "coverage": True, "nominal": True, "scanner": True,
     "transition": False, "connectors": False, "frames": False,
     "laser": False, "labels": False,
+    "features": True,
 }
 
 
@@ -110,6 +111,7 @@ class ViewerWidget(QtWidgets.QWidget):
         layout.addWidget(self.interactor)
         self.controller = LayerController()
         self._cad_bounds = None
+        self._hole_actors = {}
         self.interactor.add_axes()
         self.interactor.show_grid()
 
@@ -117,6 +119,7 @@ class ViewerWidget(QtWidgets.QWidget):
         self.interactor.clear()
         self.controller = LayerController()
         self._cad_bounds = None
+        self._hole_actors = {}
 
     def show_model(self, model) -> None:
         self.clear()
@@ -134,10 +137,23 @@ class ViewerWidget(QtWidgets.QWidget):
         self.controller.add(ActorRecord(
             self.interactor.add_mesh(poly, color="lightgray", opacity=0.35), "cad"
         ))
-        self.controller.add(ActorRecord(
-            self.interactor.add_mesh(poly, scalars="coverage_rgb", rgb=True, opacity=0.78),
-            "coverage",
-        ))
+        if result.coverage is not None:
+            self.controller.add(ActorRecord(
+                self.interactor.add_mesh(poly, scalars="coverage_rgb", rgb=True, opacity=0.78),
+                "coverage",
+            ))
+        for feature in result.hole_features:
+            marker = pv.Sphere(
+                radius=max(feature.radius_mm * 1.05, 0.5),
+                center=feature.entry_opening_centre,
+                theta_resolution=24, phi_resolution=12,
+            )
+            actor = self.interactor.add_mesh(
+                marker, color="yellow", opacity=0.18, style="wireframe",
+                line_width=2,
+            )
+            self._hole_actors[feature.feature_id] = actor
+            self.controller.add(ActorRecord(actor, "features"))
         for sweep in result.sweeps:
             scan = sweep.scan_poses
             if not scan:
@@ -210,19 +226,20 @@ class ViewerWidget(QtWidgets.QWidget):
                 vectors = np.asarray([rotation.apply(axis) for rotation in rotations])
                 self.controller.add(ActorRecord(
                     self.interactor.add_arrows(origins, vectors * length, color=color), "frames"))
-        footprints = []
-        for pose in scan_poses[::config.laser_footprint_stride]:
-            axis = Rotation.from_quat(pose.quaternion_xyzw).apply([1, 0, 0])
-            half = 0.5 * config.laser_width_mm * axis
-            footprints.append((pose.surface_point - half, pose.surface_point + half))
-        if footprints:
-            self.controller.add(ActorRecord(self.interactor.add_mesh(
-                _line_polydata(footprints), color="cyan", line_width=1), "laser"))
-        points = np.asarray([[f.center.x, f.center.y, f.center.z] for f in model.faces])
-        label_actor = self.interactor.add_point_labels(
-            points, [str(f.face_id) for f in model.faces], font_size=8,
-            point_size=2, shape_opacity=0.25, always_visible=False)
-        self.controller.add(ActorRecord(label_actor, "labels"))
+        if config.planning_quality != "fast_preview":
+            footprints = []
+            for pose in scan_poses[::config.laser_footprint_stride]:
+                axis = Rotation.from_quat(pose.quaternion_xyzw).apply([1, 0, 0])
+                half = 0.5 * config.laser_width_mm * axis
+                footprints.append((pose.surface_point - half, pose.surface_point + half))
+            if footprints:
+                self.controller.add(ActorRecord(self.interactor.add_mesh(
+                    _line_polydata(footprints), color="cyan", line_width=1), "laser"))
+            points = np.asarray([[f.center.x, f.center.y, f.center.z] for f in model.faces])
+            label_actor = self.interactor.add_point_labels(
+                points, [str(f.face_id) for f in model.faces], font_size=8,
+                point_size=2, shape_opacity=0.25, always_visible=False)
+            self.controller.add(ActorRecord(label_actor, "labels"))
         self.controller.refresh()
         self.fit_cad()
 
@@ -248,3 +265,11 @@ class ViewerWidget(QtWidgets.QWidget):
     def reset_camera(self) -> None:
         self.interactor.view_isometric()
         self.fit_trajectory()
+
+    def select_hole(self, feature_id: int) -> None:
+        for hole_id, actor in self._hole_actors.items():
+            actor.GetProperty().SetColor(
+                (1.0, 0.1, 0.1) if hole_id == feature_id else (1.0, 1.0, 0.0)
+            )
+            actor.GetProperty().SetLineWidth(5 if hole_id == feature_id else 2)
+        self.interactor.render()

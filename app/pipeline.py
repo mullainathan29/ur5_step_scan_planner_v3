@@ -20,6 +20,8 @@ from coverage import (
 from exporter import export_pipeline_files
 from face_analysis import SurfaceType, extract_face_records
 from geometry_validation import validate_pose_geometry
+from features import analyse_hole_coverage, detect_hole_features
+from mission_optimizer import optimisation_payload, optimise_scan_mission
 from planners.base import PlannerSettings, Pose
 from planners.cylinder import plan_cylindrical_face
 from planners.cone import plan_conical_face
@@ -30,6 +32,11 @@ from path_validation import validate_scan_segment
 from regions import build_cylindrical_regions, build_planar_regions
 from viewer import show_pipeline
 from region_motion import assemble_region_motion
+from recovery import (
+    RecoveryCandidate, candidate_accessible, generate_bottom_sweep,
+    generate_hole_recovery_candidates, generate_lower_diagonal_sweeps,
+    generate_lower_isometric,
+)
 
 
 def _output_paths(config: PipelineConfig) -> dict[str, Path]:
@@ -156,10 +163,78 @@ def _run_view_based_pipeline(config: PipelineConfig, model) -> PipelineResult:
         minimum_recovery_gain_percent=config.minimum_recovery_gain_percent,
     ))
     mission = planner.plan(model, coverage_settings)
-    poses = mission.poses
-    coverage = mission.final_coverage
-    assert coverage is not None
+    holes = detect_hole_features(model) if config.enable_hole_recovery else ()
+    internal_settings = replace(coverage_settings, include_internal_surfaces=True)
+    exterior = detect_exterior_face_ids(model)
+    initial_optical = validate_coverage(
+        model, mission.poses, internal_settings, exterior_face_ids=exterior
+    )
+    initial_hole_reports = tuple(
+        analyse_hole_coverage(model, hole, initial_optical,
+                              config.hole_target_coverage_percent)
+        for hole in holes
+    )
+    holes = tuple(
+        replace(hole, current_optical_coverage_percent=report.cylindrical_wall_coverage_percent)
+        for hole, report in zip(holes, initial_hole_reports)
+    )
+    mandatory = tuple(sweep for sweep in mission.sweeps
+                      if sweep.view_type != "isometric")
+    optionals: list[RecoveryCandidate] = [
+        RecoveryCandidate(sweep.sweep_id, sweep.sweep_name,
+                          "upper_isometric", sweep)
+        for sweep in mission.sweeps if sweep.view_type == "isometric"
+    ]
+    next_id = max((sweep.sweep_id for sweep in mission.sweeps), default=-1) + 1
+    if config.enable_hole_recovery:
+        for hole, report in zip(holes, initial_hole_reports):
+            generated = generate_hole_recovery_candidates(
+                hole, report, planner.settings, candidate_id_start=next_id,
+                tilt_angles_deg=config.hole_candidate_tilt_angles_deg,
+                azimuth_count=config.hole_candidate_azimuth_count,
+                maximum_views=config.maximum_views_per_hole,
+                enable_orbital=config.enable_orbital_hole_sweep,
+                enable_blind_bottom=config.enable_blind_hole_bottom_recovery,
+                orbital_mode=config.orbital_hole_mode,
+            )
+            optionals.extend(generated)
+            next_id += len(generated)
+    fixture_path = (
+        config.fixture_mesh_path if config.fixture_exclusion_enabled else None
+    )
+    if config.enable_lower_isometric_recovery:
+        for lower_index in range(config.maximum_lower_recovery_sweeps):
+            optionals.append(generate_lower_isometric(
+                model, planner.settings, next_id,
+                min(80.0, config.lower_isometric_elevation_deg + 5.0 * lower_index),
+            )); next_id += 1
+        optionals.extend(generate_lower_diagonal_sweeps(
+            model, planner.settings, next_id,
+            config.lower_isometric_elevation_deg,
+        )); next_id += 2
+    if config.enable_bottom_sweep:
+        optionals.append(generate_bottom_sweep(model, planner.settings, next_id))
+    optionals = [candidate for candidate in optionals if candidate_accessible(
+        candidate, model, fixture_path, config.bottom_clearance_mm
+    )]
+    optimisation = optimise_scan_mission(
+        model, mandatory, tuple(optionals), holes, coverage_settings,
+        target_total_coverage_percent=config.total_target_coverage_percent,
+        target_hole_coverage_percent=config.hole_target_coverage_percent,
+        minimum_gain_percent=config.minimum_candidate_gain_percent,
+        maximum_optional_sweeps=config.maximum_optional_sweeps,
+        floating_part_assumption=not config.fixture_exclusion_enabled,
+    )
+    sweeps = optimisation.sweeps
+    poses = tuple(pose for sweep in sweeps for pose in sweep.poses)
+    coverage = optimisation.coverage
     output_files = _output_paths(config)
+    output_dir = next(iter(output_files.values())).parent
+    output_files.update({
+        "feature_report_json": output_dir / "feature_report.json",
+        "hole_coverage_report_json": output_dir / "hole_coverage_report.json",
+        "optimisation_report_json": output_dir / "optimisation_report.json",
+    })
     geometry_validation = validate_pose_geometry(poses) if config.geometry_validation else None
     summary = PipelineSummary(
         total_step_faces=len(model.faces), selected_planar_faces=0,
@@ -167,8 +242,8 @@ def _run_view_based_pipeline(config: PipelineConfig, model) -> PipelineResult:
         selected_spherical_faces=0,
         skipped_faces_by_reason={"view-based mission does not select individual faces":
                                  tuple(face.face_id for face in model.faces)},
-        generated_scan_regions=len(mission.sweeps),
-        generated_scan_segments=len(mission.sweeps),
+        generated_scan_regions=len(sweeps),
+        generated_scan_segments=len(sweeps),
         scan_pose_count=sum(p.scan_enabled for p in poses),
         total_scan_path_length_mm=_scan_path_length(poses),
         coverage_percent=coverage.report["total_exterior_surface"].coverage_percent,
@@ -179,15 +254,31 @@ def _run_view_based_pipeline(config: PipelineConfig, model) -> PipelineResult:
         "summary": {**asdict(summary), "output_files": {
             key: str(value) for key, value in output_files.items()}},
         "planning_mode": "simple_view_based",
-        "sweep_order": [sweep.sweep_name for sweep in mission.sweeps],
+        "sweep_order": [sweep.sweep_name for sweep in sweeps],
         "coverage_contribution_area_mm2": mission.coverage_contribution_area_mm2,
         "usable_laser_line_fraction": mission.usable_laser_line_fraction,
         "surface_coverage": {name: asdict(row) for name, row in coverage.report.items()},
         "safety_notice": (
-            "Cartesian planning only; no UR5 IK, collision checking, ROS 2, "
-            "or mission optimisation has been performed."
+            "Cartesian optical planning only; no UR5 IK, joint-limit, full "
+            "collision, MoveIt2, or ROS 2 validation has been performed."
         ),
     }
+    validation_payload["feature_report"] = {
+        "floating_part_assumption": not config.fixture_exclusion_enabled,
+        "holes": [
+            {**asdict(hole),
+             "centre": hole.centre.tolist(), "axis": hole.axis.tolist(),
+             "entry_opening_centre": hole.entry_opening_centre.tolist(),
+             "entry_opening_normal": hole.entry_opening_normal.tolist()}
+            for hole in holes
+        ],
+    }
+    validation_payload["hole_coverage_report"] = {
+        "target_percent": config.hole_target_coverage_percent,
+        "before": [asdict(row) for row in optimisation.hole_reports_before],
+        "after": [asdict(row) for row in optimisation.hole_reports_after],
+    }
+    validation_payload["optimisation_report"] = optimisation_payload(optimisation)
     export_pipeline_files(output_files, config, poses, coverage, validation_payload,
                           model.validation_mesh.triangle_face_ids)
     result = PipelineResult(
@@ -195,7 +286,9 @@ def _run_view_based_pipeline(config: PipelineConfig, model) -> PipelineResult:
         spherical_plans=(), poses=poses, coverage=coverage,
         baseline_coverage=mission.principal_coverage or coverage,
         geometry_validation=geometry_validation, summary=summary,
-        sweeps=mission.sweeps,
+        sweeps=sweeps, hole_features=holes,
+        hole_coverage_reports=optimisation.hole_reports_after,
+        optimisation_report=optimisation,
     )
     if config.display:
         _display_pipeline(result, config)

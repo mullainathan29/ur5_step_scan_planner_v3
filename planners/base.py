@@ -142,6 +142,16 @@ class Pose:
     travel_direction: tuple[float, float, float] | None = None
     predicted_stand_off_mm: float | None = None
     predicted_visible_laser_width_mm: float | None = None
+    feature_id: int = -1
+    feature_type: str = ""
+    target_hole_id: int = -1
+    recovery_strategy: str = ""
+    candidate_score: float = 0.0
+    coverage_gain: float = 0.0
+    hole_coverage_before: float = 0.0
+    hole_coverage_after: float = 0.0
+    bottom_coverage_gain: float = 0.0
+    mandatory_or_optional: str = "mandatory"
 
 
 @dataclass(frozen=True)

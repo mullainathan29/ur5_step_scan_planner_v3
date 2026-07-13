@@ -5,12 +5,18 @@ from __future__ import annotations
 import shutil
 from collections import Counter
 from pathlib import Path
+from time import perf_counter
 
 from PySide6 import QtCore, QtWidgets
 
 from gui.controls_panel import ControlsPanel
 from gui.viewer_widget import ViewerWidget
-from gui.workers import CoverageWorker, PlanningWorker, StepLoadWorker, ValidationWorker
+from app.staged_pipeline import GeometryCache, StageTimings
+from gui.workers import (
+    CoverageWorker, FeatureRecoveryWorker, OptimisationWorker, PlanningWorker,
+    StepLoadWorker, ValidationWorker, WorkerResult,
+)
+from exporter import export_staged_trajectory
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -37,6 +43,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.planning_dirty = False
         self._thread = None
         self._worker = None
+        self.geometry_cache = GeometryCache()
+        self.log_view = QtWidgets.QPlainTextEdit()
+        self.log_view.setReadOnly(True)
+        log_dock = QtWidgets.QDockWidget("Pipeline timings", self)
+        log_dock.setWidget(self.log_view)
+        self.addDockWidget(QtCore.Qt.DockWidgetArea.BottomDockWidgetArea, log_dock)
         self._create_menus()
         self._connect_controls()
 
@@ -57,6 +69,8 @@ class MainWindow(QtWidgets.QMainWindow):
         c.upload_button.clicked.connect(self.choose_step)
         c.generate_button.clicked.connect(self.generate_paths)
         c.coverage_button.clicked.connect(self.run_coverage)
+        c.recovery_button.clicked.connect(self.generate_feature_recovery)
+        c.optimise_button.clicked.connect(self.optimise_mission)
         c.validate_button.clicked.connect(self.validate_geometry)
         c.export_csv_button.clicked.connect(self.export_csv)
         c.export_json_button.clicked.connect(self.export_json)
@@ -68,6 +82,7 @@ class MainWindow(QtWidgets.QMainWindow):
         c.fit_cad_button.clicked.connect(self.viewer.fit_cad)
         c.fit_trajectory_button.clicked.connect(self.viewer.fit_trajectory)
         c.reset_camera_button.clicked.connect(self.viewer.reset_camera)
+        c.hole_selection_changed.connect(self.viewer.select_hole)
 
     @QtCore.Slot()
     def choose_step(self) -> None:
@@ -79,10 +94,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def load_step(self, path: Path) -> None:
         self.step_path = path
+        self.geometry_cache.set_path(path)
         self.controls.filename_label.setText(path.name)
-        self._start_worker(StepLoadWorker(path), self._model_loaded)
+        self._start_worker(StepLoadWorker(path, self.geometry_cache), self._model_loaded)
 
-    def _model_loaded(self, model) -> None:
+    def _model_loaded(self, payload: WorkerResult) -> None:
+        model = payload.value
+        self._log_timings(payload.timings)
         self.model = model
         self.result = None
         counts = Counter(record.geometry_type.value for record in model.faces)
@@ -109,14 +127,29 @@ class MainWindow(QtWidgets.QMainWindow):
             self._message(str(exc))
             return
         self.config = config
-        self._start_worker(PlanningWorker(config), self._planning_complete)
+        self._start_worker(PlanningWorker(config, self.geometry_cache), self._planning_complete)
 
-    def _planning_complete(self, result) -> None:
+    def _planning_complete(self, payload: WorkerResult) -> None:
+        result = payload.value
+        self._log_timings(payload.timings)
         self.result = result
         self.planning_dirty = False
         regions = sorted({pose.region_id for pose in result.poses if pose.scan_enabled})
         self.controls.set_selection_values(regions, [face.face_id for face in result.model.faces])
+        started = perf_counter()
         self.viewer.show_result(result, self.config)
+        viewer_timings = StageTimings(); viewer_timings.record(
+            "viewer update", perf_counter() - started
+        )
+        self._log_timings(viewer_timings)
+        if result.hole_features:
+            optimisation = result.optimisation_report
+            self.controls.set_hole_features(
+                result.hole_features,
+                optimisation.hole_reports_before if optimisation else (),
+                result.hole_coverage_reports,
+                optimisation.candidate_evaluations if optimisation else (),
+            )
         self._sync_layer_controls()
         self.statusBar().showMessage(
             f"Generated {result.summary.generated_scan_segments} segments, "
@@ -127,18 +160,86 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.result is None or self.config is None:
             self._message("Generate paths before running coverage.")
             return
-        self._start_worker(CoverageWorker(self.result, self.config), self._result_updated)
+        self.config = self.controls.planning_config(self.step_path)
+        self._start_worker(CoverageWorker(
+            self.result, self.config, self.geometry_cache
+        ), self._result_updated)
+
+    @QtCore.Slot()
+    def generate_feature_recovery(self) -> None:
+        if self.result is None or self.config is None:
+            self._message("Generate paths and run coverage first.")
+            return
+        self.config = self.controls.planning_config(self.step_path)
+        estimate = self.controls.update_candidate_estimate(
+            self.result.hole_features, self.result.hole_coverage_reports
+        )
+        if (estimate is not None
+                and self.config.planning_quality == "fast_preview"
+                and estimate.estimated_candidates > 100):
+            message = QtWidgets.QMessageBox(self)
+            message.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            message.setWindowTitle("High recovery complexity")
+            message.setText(
+                f"Estimated recovery candidates: {estimate.estimated_candidates}."
+            )
+            message.setInformativeText(
+                "Apply reduced Fast-preview settings, continue with the "
+                "current configuration, or cancel."
+            )
+            apply_button = message.addButton(
+                "Apply recommended settings", QtWidgets.QMessageBox.ButtonRole.AcceptRole
+            )
+            continue_button = message.addButton(
+                "Continue", QtWidgets.QMessageBox.ButtonRole.DestructiveRole
+            )
+            message.addButton(QtWidgets.QMessageBox.StandardButton.Cancel)
+            message.exec()
+            clicked = message.clickedButton()
+            if clicked is apply_button:
+                self.controls.apply_fast_recovery_defaults()
+                self.config = self.controls.planning_config(self.step_path)
+            elif clicked is not continue_button:
+                return
+        self._start_worker(
+            FeatureRecoveryWorker(self.result, self.config), self._result_updated
+        )
+
+    @QtCore.Slot()
+    def optimise_mission(self) -> None:
+        if self.result is None or self.config is None:
+            self._message("Generate paths, run coverage, and generate recovery first.")
+            return
+        self.config = self.controls.planning_config(self.step_path)
+        self._start_worker(
+            OptimisationWorker(self.result, self.config), self._result_updated
+        )
 
     @QtCore.Slot()
     def validate_geometry(self) -> None:
         if self.result is None:
             self._message("Generate paths before validating geometry.")
             return
-        self._start_worker(ValidationWorker(self.result), self._result_updated)
+        self._start_worker(ValidationWorker(
+            self.result, self.config, self.geometry_cache
+        ), self._result_updated)
 
-    def _result_updated(self, result) -> None:
+    def _result_updated(self, payload: WorkerResult) -> None:
+        result = payload.value
+        self._log_timings(payload.timings)
         self.result = result
+        started = perf_counter()
         self.viewer.show_result(result, self.config)
+        timings = StageTimings(); timings.record("viewer update", perf_counter() - started)
+        self._log_timings(timings)
+        if result.hole_features:
+            optimisation = result.optimisation_report
+            self.controls.set_hole_features(
+                result.hole_features,
+                (optimisation.hole_reports_before if optimisation else result.hole_coverage_reports),
+                result.hole_coverage_reports,
+                (optimisation.candidate_evaluations if optimisation else ()),
+            )
         self._sync_layer_controls()
         self.apply_selection()
 
@@ -230,6 +331,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.result is None:
             self._message("Generate paths before exporting.")
             return
+        if key not in self.result.summary.output_files:
+            suffix = ".csv" if key == "trajectory_csv" else ".json"
+            destination, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Export staged trajectory", f"trajectory{suffix}", file_filter
+            )
+            if destination:
+                export_staged_trajectory(destination, self.config, self.result.poses)
+                self.statusBar().showMessage(f"Exported {destination}", 5000)
+            return
         source = self.result.summary.output_files[key]
         destination, _ = QtWidgets.QFileDialog.getSaveFileName(
             self, "Export trajectory", source.name, file_filter
@@ -240,6 +350,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _message(self, text: str) -> None:
         self.statusBar().showMessage(text, 5000)
+
+    def _log_timings(self, timings: StageTimings) -> None:
+        for stage, seconds in timings.seconds.items():
+            line = f"{stage}: {seconds:.3f} s"
+            self.log_view.appendPlainText(line)
+            print(line)
 
     def closeEvent(self, event) -> None:
         if self._worker is not None:

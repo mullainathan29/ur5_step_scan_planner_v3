@@ -49,6 +49,16 @@ class CadModel:
     validation_mesh: ValidationMesh
 
 
+@dataclass(frozen=True)
+class CadBRep:
+    """Cached authoritative geometry before any display tessellation."""
+
+    source_path: Path
+    shape: cq.Shape
+    topods_faces: tuple[TopoDS_Face, ...]
+    faces: tuple[FaceRecord, ...]
+
+
 def _validate_step_path(path: str | Path) -> Path:
     source = Path(path).expanduser()
     if source.suffix.lower() not in {".step", ".stp"}:
@@ -64,6 +74,7 @@ def tessellate_for_validation(
     faces: tuple[TopoDS_Face, ...],
     linear_tolerance: float = 0.25,
     angular_tolerance: float = 0.1,
+    cancellation_check=None,
 ) -> ValidationMesh:
     """Create a non-authoritative mesh while preserving triangle face IDs."""
 
@@ -72,12 +83,14 @@ def tessellate_for_validation(
     if angular_tolerance <= 0.0:
         raise ValueError("angular_tolerance must be greater than zero.")
 
+    cancellation_check = cancellation_check or (lambda: None)
     vertices: list[np.ndarray] = []
     triangles: list[np.ndarray] = []
     triangle_face_ids: list[int] = []
     vertex_offset = 0
 
     for face_id, topods_face in enumerate(faces):
+        cancellation_check()
         face = cq.Face(topods_face)
         face_vertices, face_triangles = face.tessellate(
             tolerance=float(linear_tolerance),
@@ -128,7 +141,28 @@ def load_step_model(
 ) -> CadModel:
     """Load STEP B-Rep faces and independently build a validation mesh."""
 
+    brep = load_step_brep(path)
+    validation_mesh = tessellate_for_validation(
+        brep.topods_faces,
+        linear_tolerance=linear_tolerance,
+        angular_tolerance=angular_tolerance,
+    )
+    return cad_model_from_brep(brep, validation_mesh)
+
+
+def load_step_brep(
+    path: str | Path,
+    *,
+    stage_callback=None,
+    cancellation_check=None,
+) -> CadBRep:
+    """Import and analyse STEP without creating a triangle mesh."""
+
+    from time import perf_counter
+
     source = _validate_step_path(path)
+    cancellation_check = cancellation_check or (lambda: None)
+    started = perf_counter()
     try:
         imported = cq.importers.importStep(str(source))
         shape = imported.val()
@@ -137,7 +171,11 @@ def load_step_model(
 
     if shape is None:
         raise StepImportError(f"STEP import returned no shape for '{source}'.")
+    if stage_callback:
+        stage_callback("STEP load", perf_counter() - started)
+    cancellation_check()
 
+    started = perf_counter()
     cadquery_faces = shape.Faces()
     topods_faces = tuple(face.wrapped for face in cadquery_faces)
     if not topods_faces:
@@ -147,15 +185,22 @@ def load_step_model(
         records = extract_face_records(topods_faces)
     except FaceAnalysisError as exc:
         raise StepImportError(f"Failed to analyze STEP model '{source}': {exc}") from exc
-    validation_mesh = tessellate_for_validation(
-        topods_faces,
-        linear_tolerance=linear_tolerance,
-        angular_tolerance=angular_tolerance,
-    )
-    return CadModel(
+    if stage_callback:
+        stage_callback("face extraction", perf_counter() - started)
+    cancellation_check()
+    return CadBRep(
         source_path=source,
         shape=shape,
         topods_faces=topods_faces,
         faces=records,
+    )
+
+
+def cad_model_from_brep(brep: CadBRep, validation_mesh: ValidationMesh) -> CadModel:
+    return CadModel(
+        source_path=brep.source_path,
+        shape=brep.shape,
+        topods_faces=brep.topods_faces,
+        faces=brep.faces,
         validation_mesh=validation_mesh,
     )

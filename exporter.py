@@ -82,6 +82,16 @@ def _pose_row(pose: Pose) -> dict[str, Any]:
         ),
         "laser_line_direction": [float(value) for value in laser_direction],
         "travel_direction": [float(value) for value in travel_direction],
+        "feature_id": pose.feature_id,
+        "feature_type": pose.feature_type,
+        "target_hole_id": pose.target_hole_id,
+        "recovery_strategy": pose.recovery_strategy,
+        "candidate_score": pose.candidate_score,
+        "coverage_gain": pose.coverage_gain,
+        "hole_coverage_before": pose.hole_coverage_before,
+        "hole_coverage_after": pose.hole_coverage_after,
+        "bottom_coverage_gain": pose.bottom_coverage_gain,
+        "mandatory_or_optional": pose.mandatory_or_optional,
     }
 
 
@@ -107,6 +117,11 @@ def _config_payload(config: PipelineConfig) -> dict[str, Any]:
         "isometric_azimuth_step_deg": config.isometric_azimuth_step_deg,
         "maximum_isometric_sweeps": config.maximum_isometric_sweeps,
         "minimum_recovery_gain_percent": config.minimum_recovery_gain_percent,
+        "enable_hole_recovery": config.enable_hole_recovery,
+        "hole_target_coverage_percent": config.hole_target_coverage_percent,
+        "enable_bottom_sweep": config.enable_bottom_sweep,
+        "enable_lower_isometric_recovery": config.enable_lower_isometric_recovery,
+        "total_target_coverage_percent": config.total_target_coverage_percent,
     }
 
 
@@ -159,3 +174,43 @@ def export_pipeline_files(
     output_files["validation_report_json"].write_text(
         json.dumps(validation_payload, indent=2), encoding="utf-8"
     )
+    for key, payload_key in (
+        ("feature_report_json", "feature_report"),
+        ("hole_coverage_report_json", "hole_coverage_report"),
+        ("optimisation_report_json", "optimisation_report"),
+    ):
+        if key in output_files:
+            output_files[key].write_text(
+                json.dumps(validation_payload.get(payload_key, {}), indent=2),
+                encoding="utf-8",
+            )
+
+
+def export_staged_trajectory(
+    path: str | Path,
+    config: PipelineConfig,
+    poses: tuple[Pose, ...],
+) -> Path:
+    """Export the current GUI-stage trajectory without running validation."""
+
+    destination = Path(path)
+    rows = [_pose_row(pose) for pose in poses]
+    if destination.suffix.lower() == ".csv":
+        with destination.open("w", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=list(rows[0]) if rows else [])
+            if rows:
+                writer.writeheader()
+                writer.writerows(rows)
+    elif destination.suffix.lower() == ".json":
+        destination.write_text(json.dumps({
+            "coordinate_frame": "CAD_STEP",
+            "position_unit": "mm",
+            "quaternion_order": "xyzw",
+            "euler_sequence": "xyz",
+            "configuration": _config_payload(config),
+            "trajectory": rows,
+            "staged_gui_export": True,
+        }, indent=2), encoding="utf-8")
+    else:
+        raise ValueError("Staged trajectory export requires .csv or .json.")
+    return destination
