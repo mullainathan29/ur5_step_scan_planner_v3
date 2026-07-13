@@ -55,12 +55,166 @@ def _transition_metrics(selected, candidate):
     return distance, angle
 
 
-def _ordered(sweeps: list[ViewSweep]) -> tuple[ViewSweep, ...]:
-    rank = {"top": 0, "isometric": 1, "front": 2, "right": 3,
-            "back": 4, "left": 5, "hole_recovery": 6,
-            "lower_isometric": 7, "bottom": 8}
-    return tuple(sorted(sweeps, key=lambda sweep: (rank.get(sweep.view_type, 6),
-                                                   sweep.sweep_id)))
+def line_collision_with_mesh(mesh, p1: np.ndarray, p2: np.ndarray) -> bool:
+    direction = p2 - p1
+    distance = np.linalg.norm(direction)
+    if distance < 1e-6:
+        return False
+    dir_norm = direction / distance
+    eps = 1.0
+    if distance <= 2 * eps:
+        return False
+    origin = p1 + eps * dir_norm
+    locations, _, _ = mesh.ray.intersects_location(
+        ray_origins=np.array([origin]),
+        ray_directions=np.array([dir_norm]),
+        multiple_hits=False
+    )
+    if len(locations) > 0:
+        hit_dist = np.linalg.norm(locations[0] - origin)
+        if hit_dist < (distance - 2 * eps):
+            return True
+    return False
+
+
+def _heuristic_ordered(sweeps: list[ViewSweep], model: CadModel) -> tuple[ViewSweep, ...]:
+    if not sweeps:
+        return ()
+    
+    # 1. Classify principal sweeps and optional/recovery sweeps
+    principal_types = {"top", "front", "right", "back", "left"}
+    principal_sweeps = [s for s in sweeps if s.view_type in principal_types]
+    recovery_sweeps = [s for s in sweeps if s.view_type not in principal_types]
+    
+    # 2. Associate each recovery sweep with the nearest principal sweep
+    def sweep_centroid(s: ViewSweep) -> np.ndarray:
+        scan_poses = [p for p in s.poses if p.scan_enabled]
+        if not scan_poses:
+            scan_poses = list(s.poses)
+        if not scan_poses:
+            return np.zeros(3)
+        return np.mean([p.position for p in scan_poses], axis=0)
+    
+    principal_centroids = {s.sweep_id: sweep_centroid(s) for s in principal_sweeps}
+    
+    groups: dict[int, list[ViewSweep]] = {s.sweep_id: [] for s in principal_sweeps}
+    unassociated = []
+    
+    for r in recovery_sweeps:
+        r_centroid = sweep_centroid(r)
+        if principal_sweeps:
+            best_p = min(principal_sweeps, key=lambda p: np.linalg.norm(principal_centroids[p.sweep_id] - r_centroid))
+            groups[best_p.sweep_id].append(r)
+        else:
+            unassociated.append(r)
+            
+    mesh = model.validation_mesh.mesh if model else None
+    
+    def transition_cost(s_a: ViewSweep, s_b: ViewSweep) -> float:
+        if not s_a.poses or not s_b.poses:
+            return 0.0
+        p_a = np.asarray(s_a.poses[-1].position)
+        p_b = np.asarray(s_b.poses[0].position)
+        dist = float(np.linalg.norm(p_b - p_a))
+        
+        q_a = np.asarray(s_a.poses[-1].quaternion_xyzw)
+        q_b = np.asarray(s_b.poses[0].quaternion_xyzw)
+        angle = float(np.degrees((Rotation.from_quat(q_a).inv() * Rotation.from_quat(q_b)).magnitude()))
+        
+        penalty = 0.0
+        if mesh is not None:
+            if line_collision_with_mesh(mesh, p_a, p_b):
+                penalty = 500.0
+                
+        return dist + 2.0 * angle + penalty
+
+    cost_matrix = {}
+    all_sweeps = list(sweeps)
+    for s_a in all_sweeps:
+        cost_matrix[s_a.sweep_id] = {}
+        for s_b in all_sweeps:
+            cost_matrix[s_a.sweep_id][s_b.sweep_id] = transition_cost(s_a, s_b)
+
+    # 3. Order recovery sweeps within each group using Nearest-Neighbour
+    ordered_groups = {}
+    for p_id, recs in groups.items():
+        if not recs:
+            ordered_groups[p_id] = []
+            continue
+        p_sweep = next(s for s in principal_sweeps if s.sweep_id == p_id)
+        current = p_sweep
+        group_order = []
+        remaining_recs = list(recs)
+        while remaining_recs:
+            next_rec = min(remaining_recs, key=lambda r: cost_matrix[current.sweep_id][r.sweep_id])
+            remaining_recs.remove(next_rec)
+            group_order.append(next_rec)
+            current = next_rec
+        if len(group_order) >= 3:
+            improved = True
+            while improved:
+                improved = False
+                for i in range(1, len(group_order) - 1):
+                    for j in range(i + 1, len(group_order) + 1):
+                        if j - i == 1:
+                            continue
+                        new_order = group_order[:i] + group_order[i:j][::-1] + group_order[j:]
+                        old_cost = (
+                            cost_matrix[p_sweep.sweep_id][group_order[0].sweep_id] +
+                            sum(cost_matrix[group_order[k].sweep_id][group_order[k+1].sweep_id] for k in range(len(group_order)-1))
+                        )
+                        new_cost = (
+                            cost_matrix[p_sweep.sweep_id][new_order[0].sweep_id] +
+                            sum(cost_matrix[new_order[k].sweep_id][new_order[k+1].sweep_id] for k in range(len(new_order)-1))
+                        )
+                        if new_cost < old_cost - 1e-4:
+                            group_order = new_order
+                            improved = True
+        ordered_groups[p_id] = group_order
+
+    # 4. Order principal sweeps using Nearest-Neighbour
+    if principal_sweeps:
+        p_ranks = {"top": 0, "front": 1, "right": 2, "back": 3, "left": 4}
+        sorted_p = sorted(principal_sweeps, key=lambda s: p_ranks.get(s.view_type, 5))
+        
+        ordered_p = [sorted_p.pop(0)]
+        while sorted_p:
+            current = ordered_p[-1]
+            current_end_sweep = ordered_groups[current.sweep_id][-1] if ordered_groups[current.sweep_id] else current
+            next_p = min(sorted_p, key=lambda p: cost_matrix[current_end_sweep.sweep_id][p.sweep_id])
+            sorted_p.remove(next_p)
+            ordered_p.append(next_p)
+            
+        if len(ordered_p) >= 3:
+            improved = True
+            while improved:
+                improved = False
+                for i in range(1, len(ordered_p) - 1):
+                    for j in range(i + 1, len(ordered_p) + 1):
+                        if j - i == 1:
+                            continue
+                        new_p_order = ordered_p[:i] + ordered_p[i:j][::-1] + ordered_p[j:]
+                        def group_seq_cost(p_seq):
+                            total = 0.0
+                            for k in range(len(p_seq) - 1):
+                                p_a = p_seq[k]
+                                p_b = p_seq[k+1]
+                                end_a = ordered_groups[p_a.sweep_id][-1] if ordered_groups[p_a.sweep_id] else p_a
+                                total += cost_matrix[end_a.sweep_id][p_b.sweep_id]
+                            return total
+                        if group_seq_cost(new_p_order) < group_seq_cost(ordered_p) - 1e-4:
+                            ordered_p = new_p_order
+                            improved = True
+    else:
+        ordered_p = []
+
+    final_sweeps = []
+    for p in ordered_p:
+        final_sweeps.append(p)
+        final_sweeps.extend(ordered_groups[p.sweep_id])
+    
+    final_sweeps.extend(unassociated)
+    return tuple(final_sweeps)
 
 
 def optimise_scan_mission(
@@ -178,7 +332,7 @@ def optimise_scan_mission(
             "not required or optional sweep limit reached", 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0,
         ))
-    ordered = _ordered(selected)
+    ordered = _heuristic_ordered(selected, model)
     final = validate(ordered)
     after = tuple(analyse_hole_coverage(
         model, hole, final, target_hole_coverage_percent

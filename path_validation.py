@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from planners.base import PlannerSettings, ScanMotionSegment
+from planners.base import PlannerSettings, ScanMotionSegment, MotionType, Pose
 
 
 @dataclass(frozen=True)
@@ -75,3 +75,162 @@ def validate_scan_segment(
         valid=not reasons,
         reasons=tuple(dict.fromkeys(reasons)),
     )
+
+
+def validate_continuous_mission(
+    poses: tuple[Pose, ...],
+    settings: PlannerSettings,
+) -> dict[str, Any]:
+    """Verify continuity, contiguity, and step-limits for the complete mission."""
+    reasons: list[str] = []
+    
+    # 1. global_pose_id is continuous (0 to N-1)
+    for idx, p in enumerate(poses):
+        if p.global_pose_id != idx:
+            reasons.append("global_pose_id is not continuous or incorrect starting index")
+            break
+            
+    # 2. scan_status is always -1 or 0
+    if not all(p.scan_status in {-1, 0} for p in poses):
+        reasons.append("scan_status has invalid values (not -1 or 0)")
+        
+    # 3. scan_status and scan_enabled agree
+    for p in poses:
+        if (p.scan_status == -1 and not p.scan_enabled) or (p.scan_status == 0 and p.scan_enabled):
+            reasons.append(f"scan_status and scan_enabled contradict at global_pose_id {p.global_pose_id}")
+            break
+            
+    # 4. no scanning pose exists in a free-space transition
+    transition_types = {MotionType.TRANSITION, MotionType.CLEARANCE, MotionType.REPOSITION, MotionType.APPROACH, MotionType.RETRACT, MotionType.LEAD_IN, MotionType.LEAD_OUT}
+    for p in poses:
+        if p.scan_status == -1 and p.motion_type in transition_types:
+            reasons.append(f"Scanning pose exists in transition motion type at global_pose_id {p.global_pose_id}")
+            break
+            
+    # 5. position and orientation steps remain within limits
+    max_pos_step = 20.0
+    max_ori_step = 5.0
+    
+    largest_pos_jump = 0.0
+    largest_ori_jump = 0.0
+    
+    for k in range(len(poses) - 1):
+        p1, p2 = poses[k], poses[k+1]
+        dist = float(np.linalg.norm(np.asarray(p2.position) - np.asarray(p1.position)))
+        angle = float(np.degrees((Rotation.from_quat(p1.quaternion_xyzw).inv() * Rotation.from_quat(p2.quaternion_xyzw)).magnitude()))
+        
+        largest_pos_jump = max(largest_pos_jump, dist)
+        largest_ori_jump = max(largest_ori_jump, angle)
+        
+        if dist < 1e-3 and angle < 1e-3:
+            # Zero length duplicate poses are not allowed
+            reasons.append(f"Zero-length duplicate pose at global_pose_id {p2.global_pose_id}")
+            
+        if dist > max_pos_step + 1e-3:
+            reasons.append(f"Position step {dist:.2f} mm exceeds limit of {max_pos_step} mm between {p1.global_pose_id} and {p2.global_pose_id}")
+        if angle > max_ori_step + 1e-3:
+            reasons.append(f"Orientation step {angle:.2f} deg exceeds limit of {max_ori_step} deg between {p1.global_pose_id} and {p2.global_pose_id}")
+            
+    # Count blocks and distances
+    scan_blocks = []
+    free_travel_blocks = []
+    
+    current_status = None
+    current_block = []
+    
+    for p in poses:
+        if p.scan_status != current_status:
+            if current_block:
+                if current_status == -1:
+                    scan_blocks.append(current_block)
+                else:
+                    free_travel_blocks.append(current_block)
+            current_status = p.scan_status
+            current_block = [p]
+        else:
+            current_block.append(p)
+    if current_block:
+        if current_status == -1:
+            scan_blocks.append(current_block)
+        else:
+            free_travel_blocks.append(current_block)
+            
+    total_scan_dist = 0.0
+    total_free_travel_dist = 0.0
+    for k in range(len(poses) - 1):
+        d = float(np.linalg.norm(np.asarray(poses[k+1].position) - np.asarray(poses[k].position)))
+        if poses[k].scan_status == -1 and poses[k+1].scan_status == -1:
+            total_scan_dist += d
+        else:
+            total_free_travel_dist += d
+
+    num_full_retracts = sum(1 for p in poses if p.motion_type == MotionType.RETRACT)
+    total_transitions = max(0, len(scan_blocks) - 1)
+    num_direct_transitions = max(0, total_transitions - num_full_retracts)
+    
+    # 6. every next scan begins after an approach/lead-in
+    for block in scan_blocks:
+        start_idx = block[0].global_pose_id
+        if start_idx > 1:
+            p_prev1 = poses[start_idx - 1]
+            p_prev2 = poses[start_idx - 2]
+            if p_prev1.motion_type != MotionType.LEAD_IN or p_prev2.motion_type != MotionType.APPROACH:
+                reasons.append(f"Scan block starting at global_pose_id {start_idx} is not preceded by APPROACH and LEAD_IN")
+
+    # 7. quaternion norm and sign continuity
+    for idx, p in enumerate(poses):
+        q = np.asarray(p.quaternion_xyzw)
+        norm = np.linalg.norm(q)
+        if abs(norm - 1.0) > 1e-3:
+            reasons.append(f"Quaternion norm {norm:.4f} is not 1.0 at global_pose_id {p.global_pose_id}")
+            break
+        if idx > 0:
+            q_prev = np.asarray(poses[idx - 1].quaternion_xyzw)
+            if np.dot(q, q_prev) < -1e-5:
+                reasons.append(f"Quaternion sign discontinuity at global_pose_id {p.global_pose_id}")
+                break
+
+    # 8. safety clearance, failed, and collision_checked validations
+    min_req_clearance = settings.safety_clearance_mm + settings.tool_envelope_radius_mm
+    for p in poses:
+        if p.scan_status == 0:
+            if p.transition_strategy == "failed":
+                reasons.append(f"Transition strategy failed at global_pose_id {p.global_pose_id}")
+            if not p.collision_checked:
+                reasons.append(f"Pose has not been collision checked at global_pose_id {p.global_pose_id}")
+            if p.clearance_mm < min_req_clearance - 1.5:
+                reasons.append(f"Clearance {p.clearance_mm:.2f} mm is below safety envelope {min_req_clearance:.2f} mm at global_pose_id {p.global_pose_id}")
+
+    # Calculate minimum and average clearances
+    min_clearance = float(min(p.clearance_mm for p in poses)) if poses else 0.0
+    free_travel_poses = [p for p in poses if p.scan_status == 0]
+    avg_clearance = float(np.mean([p.clearance_mm for p in free_travel_poses])) if free_travel_poses else 0.0
+
+    # Calculate additional safe routing distance compared with unsafe direct routing
+    direct_routing_distance_sum = 0.0
+    if len(scan_blocks) > 0:
+        direct_routing_distance_sum += float(np.linalg.norm(np.asarray(poses[0].position) - np.asarray(scan_blocks[0][0].position)))
+        for idx in range(len(scan_blocks) - 1):
+            p_from = scan_blocks[idx][-1]
+            p_to = scan_blocks[idx+1][0]
+            direct_routing_distance_sum += float(np.linalg.norm(np.asarray(p_from.position) - np.asarray(p_to.position)))
+        direct_routing_distance_sum += float(np.linalg.norm(np.asarray(poses[-1].position) - np.asarray(scan_blocks[-1][-1].position)))
+    additional_safe_dist = max(0.0, total_free_travel_dist - direct_routing_distance_sum)
+
+    report = {
+        "valid": len(reasons) == 0,
+        "reasons": tuple(reasons),
+        "num_scan_blocks": len(scan_blocks),
+        "num_free_travel_blocks": len(free_travel_blocks),
+        "num_full_retracts": num_full_retracts,
+        "num_direct_transitions": num_direct_transitions,
+        "total_scan_distance": total_scan_dist,
+        "total_free_travel_distance": total_free_travel_dist,
+        "largest_position_jump": largest_pos_jump,
+        "largest_orientation_jump": largest_ori_jump,
+        "invalid_transition_count": 0 if len(reasons) == 0 else 1,
+        "minimum_mission_clearance": min_clearance,
+        "average_transition_clearance": avg_clearance,
+        "additional_safe_routing_distance": additional_safe_dist,
+    }
+    return report

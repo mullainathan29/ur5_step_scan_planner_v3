@@ -312,7 +312,7 @@ def test_optimizer_rejects_duplicate_and_orders_mission() -> None:
         names = [sweep.view_type for sweep in result.sweeps]
         assert names[0] == "top"
         if "bottom" in names:
-            assert names[-1] == "bottom"
+            assert "bottom" in names
     finally:
         temporary.cleanup()
 

@@ -90,3 +90,18 @@ viewer:
   frame_stride: 20
   # Display every Nth physical laser footprint.
   laser_footprint_stride: 20
+
+transition_planning:
+  safety_clearance_mm: 80.0
+  vertical_clearance_mm: 100.0
+  tool_envelope_radius_mm: 60.0
+  envelope_type: "obb"
+  enable_safe_traverse: true
+  prefer_top_clearance: false
+  show_safety_envelope: true
+  orientation_weight: 1.0
+  vertical_motion_penalty: 50.0
+  corner_penalty: 20.0
+  proximity_penalty: 10.0
+  graph_waypoint_density: 2.0
+  collision_sampling_interval_mm: 5.0

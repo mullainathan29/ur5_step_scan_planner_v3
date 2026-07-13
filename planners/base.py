@@ -23,6 +23,11 @@ class MotionType(str, Enum):
     LANE_TRANSITION = "lane_transition"
     LEAD_OUT = "lead_out"
     RETRACT = "retract"
+    TRANSITION = "transition"
+    CLEARANCE = "clearance"
+    REPOSITION = "reposition"
+    MISSION_START = "mission_start"
+    MISSION_END = "mission_end"
 
 
 class CylinderStrategy(str, Enum):
@@ -52,6 +57,8 @@ class PlannerSettings:
     approach_clearance_mm: float = 120.0
     lead_distance_mm: float = 20.0
     geometric_tolerance_mm: float = 1.0e-7
+    safety_clearance_mm: float = 80.0
+    tool_envelope_radius_mm: float = 60.0
 
     def validate(self) -> None:
         for name in (
@@ -162,6 +169,18 @@ class Pose:
     predicted_hole_wall_gain: float = 0.0
     predicted_depth_gain: float = 0.0
     predicted_angular_sector_gain: float = 0.0
+    global_pose_id: int = -1
+    mission_segment_id: int = -1
+    source_sweep_id: int = -1
+    source_sweep_name: str = ""
+    source_feature_id: int = -1
+    scan_status: int = 0
+    warning_flags: str = ""
+    transition_id: int = -1
+    transition_strategy: str = ""
+    clearance_mm: float = 0.0
+    collision_checked: bool = False
+    envelope_type: str = ""
 
 
 @dataclass(frozen=True)

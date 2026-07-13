@@ -229,7 +229,54 @@ class ValidationWorker(TaskWorker):
         validation = validate_pose_geometry(result.poses)
         self.check_cancelled()
         timings.record("geometry validation", perf_counter() - started)
+
+        # Mission path validation
+        is_continuous = len(result.poses) > 0 and all(p.global_pose_id >= 0 for p in result.poses)
+        if is_continuous:
+            self.progress.emit(70, "Mission path validation")
+            started_mv = perf_counter()
+            from path_validation import validate_continuous_mission
+            from planners.base import PlannerSettings
+            settings = PlannerSettings(
+                safety_clearance_mm=self.config.safety_clearance_mm,
+                tool_envelope_radius_mm=self.config.tool_envelope_radius_mm
+            )
+            mission_report = validate_continuous_mission(result.poses, settings)
+            timings.record("mission validation", perf_counter() - started_mv)
+            if not result.summary.output_files:
+                result.summary.output_files = {}
+            result.summary.output_files["mission_validation_report"] = mission_report
+
         self.progress.emit(100, "Validation complete")
         return WorkerResult(replace(
             result, geometry_validation=validation
         ), timings)
+
+
+class BuildMissionWorker(TaskWorker):
+    def __init__(self, result, config) -> None:
+        super().__init__()
+        self.result, self.config = result, config
+
+    def execute(self):
+        timings = StageTimings()
+        started = perf_counter()
+        from planners.mission_builder import build_continuous_mission
+        poses = build_continuous_mission(self.result, self.config)
+        timings.record("build continuous mission", perf_counter() - started)
+        result = replace(self.result, poses=poses)
+        
+        # Run validation so stats are immediately available
+        from path_validation import validate_continuous_mission
+        from planners.base import PlannerSettings
+        settings = PlannerSettings(
+            safety_clearance_mm=self.config.safety_clearance_mm,
+            tool_envelope_radius_mm=self.config.tool_envelope_radius_mm
+        )
+        mission_report = validate_continuous_mission(poses, settings)
+        if not result.summary.output_files:
+            result.summary.output_files = {}
+        result.summary.output_files["mission_validation_report"] = mission_report
+        
+        self.progress.emit(100, "Continuous mission built")
+        return WorkerResult(result, timings)

@@ -40,22 +40,15 @@ def _pose_row(pose: Pose) -> dict[str, Any]:
         else float(np.linalg.norm(pose.position - pose.surface_point))
     )
     return {
-        "sweep_id": pose.sweep_id,
-        "sweep_name": pose.sweep_name,
-        "view_type": pose.view_type,
-        "face_id": pose.face_id,
-        "region_id": pose.region_id,
-        "member_face_ids": list(pose.member_face_ids),
-        "segment_id": pose.segment_id,
-        "pose_id": pose.pose_id,
-        "motion_type": pose.motion_type.value,
+        "global_pose_id": pose.global_pose_id,
+        "mission_segment_id": pose.mission_segment_id,
+        "source_sweep_id": pose.source_sweep_id if pose.source_sweep_id >= 0 else pose.sweep_id,
+        "source_sweep_name": pose.source_sweep_name if pose.source_sweep_name else pose.sweep_name,
+        "feature_id": pose.feature_id,
+        "target_hole_id": pose.target_hole_id,
+        "motion_type": pose.motion_type.value if hasattr(pose.motion_type, "value") else str(pose.motion_type),
+        "scan_status": pose.scan_status,
         "scan_enabled": pose.scan_enabled,
-        "surface_x": float(pose.surface_point[0]),
-        "surface_y": float(pose.surface_point[1]),
-        "surface_z": float(pose.surface_point[2]),
-        "normal_x": float(pose.surface_normal[0]),
-        "normal_y": float(pose.surface_normal[1]),
-        "normal_z": float(pose.surface_normal[2]),
         "x": float(pose.position[0]),
         "y": float(pose.position[1]),
         "z": float(pose.position[2]),
@@ -69,22 +62,35 @@ def _pose_row(pose: Pose) -> dict[str, Any]:
         "roll_deg": float(rpy[0]),
         "pitch_deg": float(rpy[1]),
         "yaw_deg": float(rpy[2]),
+        "predicted_stand_off_mm": float(predicted_stand_off),
+        "warning_flags": pose.warning_flags,
+        "sweep_id": pose.sweep_id,
+        "sweep_name": pose.sweep_name,
+        "view_type": pose.view_type,
+        "face_id": pose.face_id,
+        "region_id": pose.region_id,
+        "member_face_ids": list(pose.member_face_ids),
+        "segment_id": pose.segment_id,
+        "pose_id": pose.pose_id,
+        "surface_x": float(pose.surface_point[0]),
+        "surface_y": float(pose.surface_point[1]),
+        "surface_z": float(pose.surface_point[2]),
+        "normal_x": float(pose.surface_normal[0]),
+        "normal_y": float(pose.surface_normal[1]),
+        "normal_z": float(pose.surface_normal[2]),
         "laser_line_x": float(laser_direction[0]),
         "laser_line_y": float(laser_direction[1]),
         "laser_line_z": float(laser_direction[2]),
         "travel_x": float(travel_direction[0]),
         "travel_y": float(travel_direction[1]),
         "travel_z": float(travel_direction[2]),
-        "predicted_stand_off_mm": float(predicted_stand_off),
         "predicted_visible_laser_width_mm": (
             None if pose.predicted_visible_laser_width_mm is None
             else float(pose.predicted_visible_laser_width_mm)
         ),
         "laser_line_direction": [float(value) for value in laser_direction],
         "travel_direction": [float(value) for value in travel_direction],
-        "feature_id": pose.feature_id,
         "feature_type": pose.feature_type,
-        "target_hole_id": pose.target_hole_id,
         "recovery_strategy": pose.recovery_strategy,
         "candidate_score": pose.candidate_score,
         "coverage_gain": pose.coverage_gain,
@@ -106,6 +112,11 @@ def _pose_row(pose: Pose) -> dict[str, Any]:
         "predicted_hole_wall_gain": pose.predicted_hole_wall_gain,
         "predicted_depth_gain": pose.predicted_depth_gain,
         "predicted_angular_sector_gain": pose.predicted_angular_sector_gain,
+        "transition_id": pose.transition_id,
+        "transition_strategy": pose.transition_strategy,
+        "clearance_mm": float(pose.clearance_mm),
+        "collision_checked": pose.collision_checked,
+        "envelope_type": pose.envelope_type,
     }
 
 
@@ -147,6 +158,16 @@ def export_pipeline_files(
     validation_payload: dict[str, Any],
     triangle_face_ids: np.ndarray,
 ) -> None:
+    # Block final export if any transition pose failed or is unchecked (only for continuous missions)
+    is_continuous = len(poses) > 0 and all(pose.global_pose_id >= 0 for pose in poses)
+    if is_continuous:
+        for pose in poses:
+            if pose.scan_status == 0:
+                if pose.transition_strategy == "failed":
+                    raise ValueError("Cannot export trajectory: a failed transition exists in the mission.")
+                if not pose.collision_checked:
+                    raise ValueError("Cannot export trajectory: pose has not been collision checked.")
+
     rows = [_pose_row(pose) for pose in poses]
     csv_path = output_files["trajectory_csv"]
     with csv_path.open("w", newline="", encoding="utf-8") as file:
@@ -155,6 +176,19 @@ def export_pipeline_files(
             writer.writeheader()
             writer.writerows(rows)
 
+    scan_dist = 0.0
+    free_travel_dist = 0.0
+    for k in range(len(poses) - 1):
+        d = float(np.linalg.norm(np.asarray(poses[k+1].position) - np.asarray(poses[k].position)))
+        if poses[k].scan_status == -1 and poses[k+1].scan_status == -1:
+            scan_dist += d
+        else:
+            free_travel_dist += d
+    total_dist = scan_dist + free_travel_dist
+    scan_pct = (scan_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+    est_scan_time = scan_dist / 50.0
+    est_free_travel_time = free_travel_dist / 150.0
+
     trajectory_payload = {
         "coordinate_frame": "CAD_STEP",
         "position_unit": "mm",
@@ -162,6 +196,20 @@ def export_pipeline_files(
         "euler_sequence": "xyz",
         "configuration": _config_payload(config),
         "trajectory": rows,
+        "mission_statistics": {
+            "total_pose_count": len(poses),
+            "scanning_pose_count": sum(1 for p in poses if p.scan_status == -1),
+            "free_travel_pose_count": sum(1 for p in poses if p.scan_status == 0),
+            "scan_distance_mm": scan_dist,
+            "free_travel_distance_mm": free_travel_dist,
+            "total_distance_mm": total_dist,
+            "scan_percentage": scan_pct,
+            "estimated_scan_time_sec": est_scan_time,
+            "estimated_free_travel_time_sec": est_free_travel_time,
+            "estimated_mission_time_sec": est_scan_time + est_free_travel_time,
+            "mission_start_pose": rows[0] if rows else None,
+            "mission_end_pose": rows[-1] if rows else None,
+        }
     }
     output_files["trajectory_json"].write_text(
         json.dumps(trajectory_payload, indent=2), encoding="utf-8"
@@ -216,6 +264,19 @@ def export_staged_trajectory(
                 writer.writeheader()
                 writer.writerows(rows)
     elif destination.suffix.lower() == ".json":
+        scan_dist = 0.0
+        free_travel_dist = 0.0
+        for k in range(len(poses) - 1):
+            d = float(np.linalg.norm(np.asarray(poses[k+1].position) - np.asarray(poses[k].position)))
+            if poses[k].scan_status == -1 and poses[k+1].scan_status == -1:
+                scan_dist += d
+            else:
+                free_travel_dist += d
+        total_dist = scan_dist + free_travel_dist
+        scan_pct = (scan_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+        est_scan_time = scan_dist / 50.0
+        est_free_travel_time = free_travel_dist / 150.0
+
         destination.write_text(json.dumps({
             "coordinate_frame": "CAD_STEP",
             "position_unit": "mm",
@@ -224,6 +285,20 @@ def export_staged_trajectory(
             "configuration": _config_payload(config),
             "trajectory": rows,
             "staged_gui_export": True,
+            "mission_statistics": {
+                "total_pose_count": len(poses),
+                "scanning_pose_count": sum(1 for p in poses if p.scan_status == -1),
+                "free_travel_pose_count": sum(1 for p in poses if p.scan_status == 0),
+                "scan_distance_mm": scan_dist,
+                "free_travel_distance_mm": free_travel_dist,
+                "total_distance_mm": total_dist,
+                "scan_percentage": scan_pct,
+                "estimated_scan_time_sec": est_scan_time,
+                "estimated_free_travel_time_sec": est_free_travel_time,
+                "estimated_mission_time_sec": est_scan_time + est_free_travel_time,
+                "mission_start_pose": rows[0] if rows else None,
+                "mission_end_pose": rows[-1] if rows else None,
+            }
         }, indent=2), encoding="utf-8")
     else:
         raise ValueError("Staged trajectory export requires .csv or .json.")

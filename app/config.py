@@ -123,6 +123,23 @@ class PipelineConfig:
     preferred_min_range_mm: float = 290.0
     preferred_max_range_mm: float = 330.0
 
+    # Safe transition planning settings
+    safety_clearance_mm: float = 80.0
+    vertical_clearance_mm: float = 100.0
+    tool_envelope_radius_mm: float = 60.0
+    envelope_type: str = "obb"
+    enable_safe_traverse: bool = True
+    prefer_top_clearance: bool = False
+    show_safety_envelope: bool = True
+    orientation_weight: float = 1.0
+    vertical_motion_penalty: float = 50.0
+    corner_penalty: float = 20.0
+    proximity_penalty: float = 10.0
+    graph_waypoint_density: float = 2.0
+    collision_sampling_interval_mm: float = 5.0
+    max_position_step_mm: float = 20.0
+    max_orientation_step_deg: float = 5.0
+
     def validate(self) -> None:
         if self.planning_mode not in {"simple_view_based", "advanced_face_based"}:
             raise ValueError(f"Unsupported planning mode: {self.planning_mode}.")

@@ -20,6 +20,11 @@ LAYER_DEFAULTS = {
     "transition": False, "connectors": False, "frames": False,
     "laser": False, "labels": False, "recovery": True, "focused": False,
     "features": True,
+    "mission_complete": True,
+    "mission_scan": True,
+    "mission_free_travel": True,
+    "mission_start_end": True,
+    "mission_transition_waypoints": True,
 }
 
 
@@ -49,8 +54,11 @@ class LayerController:
         self.records.append(record)
 
     def refresh(self) -> None:
+        complete_visible = self.layer_visibility.get("mission_complete", True)
         for record in self.records:
             visible = self.layer_visibility.get(record.layer, True)
+            if record.layer in {"mission_scan", "mission_free_travel", "mission_start_end", "mission_transition_waypoints"}:
+                visible = visible and complete_visible
             if record.region_id is not None:
                 if self.only_selected_region and self.region_id is not None:
                     visible = visible and record.region_id == self.region_id
@@ -312,6 +320,139 @@ class ViewerWidget(QtWidgets.QWidget):
                 points, [str(f.face_id) for f in model.faces], font_size=8,
                 point_size=2, shape_opacity=0.25, always_visible=False)
             self.controller.add(ActorRecord(label_actor, "labels"))
+        is_continuous = len(result.poses) > 0 and all(p.global_pose_id >= 0 for p in result.poses)
+        if is_continuous:
+            scan_segments = []
+            free_travel_segments = []
+            
+            current_scan = []
+            current_free = []
+            
+            for pose in result.poses:
+                if pose.scan_status == -1:
+                    if current_free:
+                        free_travel_segments.append(current_free)
+                        current_free = []
+                    current_scan.append(pose.position)
+                else:
+                    if current_scan:
+                        scan_segments.append(current_scan)
+                        current_scan = []
+                    current_free.append(pose.position)
+            if current_scan:
+                scan_segments.append(current_scan)
+            if current_free:
+                free_travel_segments.append(current_free)
+                
+            for seg in scan_segments:
+                if len(seg) >= 2:
+                    actor = self.interactor.add_mesh(
+                        pv.lines_from_points(np.asarray(seg)),
+                        color="dodgerblue",
+                        line_width=5,
+                        opacity=1.0,
+                    )
+                    self.controller.add(ActorRecord(actor, "mission_scan"))
+                    
+            for seg in free_travel_segments:
+                if len(seg) >= 2:
+                    actor = self.interactor.add_mesh(
+                        pv.lines_from_points(np.asarray(seg)),
+                        color="lightgray",
+                        line_width=2,
+                        opacity=0.3,
+                    )
+                    self.controller.add(ActorRecord(actor, "mission_free_travel"))
+                    
+            start_pos = np.asarray(result.poses[0].position)
+            end_pos = np.asarray(result.poses[-1].position)
+            
+            start_sphere = pv.Sphere(radius=4.0, center=start_pos)
+            end_sphere = pv.Sphere(radius=4.0, center=end_pos)
+            
+            actor_start = self.interactor.add_mesh(start_sphere, color="green", opacity=1.0)
+            actor_end = self.interactor.add_mesh(end_sphere, color="red", opacity=1.0)
+            
+            self.controller.add(ActorRecord(actor_start, "mission_start_end"))
+            self.controller.add(ActorRecord(actor_end, "mission_start_end"))
+            
+            transition_pts = [p.position for p in result.poses if p.scan_status == 0]
+            if transition_pts:
+                waypoints_poly = pv.PolyData(np.asarray(transition_pts))
+                actor_wps = self.interactor.add_mesh(
+                    waypoints_poly,
+                    color="yellow",
+                    point_size=6,
+                    render_points_as_spheres=True,
+                    opacity=0.8,
+                )
+                self.controller.add(ActorRecord(actor_wps, "mission_transition_waypoints"))
+
+            # Safety Envelope Box rendering
+            if result.summary.output_files and "safety_box" in result.summary.output_files:
+                safety_box = result.summary.output_files["safety_box"]
+                box_vertices = safety_box.vertices
+                box_faces = safety_box.faces
+                pv_faces = np.column_stack([np.full(len(box_faces), 3), box_faces]).ravel()
+                box_poly = pv.PolyData(box_vertices, pv_faces)
+                
+                box_actor = self.interactor.add_mesh(
+                    box_poly,
+                    color="cyan",
+                    opacity=0.08,
+                    style="surface",
+                    show_edges=True,
+                    edge_color="cyan",
+                    line_width=1.5
+                )
+                self.controller.add(ActorRecord(box_actor, "safety_envelope"))
+
+            # Rejected direct lines rendering
+            if result.summary.output_files and "rejected_direct_lines" in result.summary.output_files:
+                rejected_lines = result.summary.output_files["rejected_direct_lines"]
+                if rejected_lines:
+                    rejected_poly = _line_polydata(rejected_lines)
+                    rej_actor = self.interactor.add_mesh(
+                        rejected_poly,
+                        color="red",
+                        line_width=2,
+                        opacity=0.8
+                    )
+                    self.controller.add(ActorRecord(rej_actor, "rejected_direct_transitions"))
+
+            # Minimum clearance markers rendering
+            free_poses = [p for p in result.poses if p.scan_status == 0]
+            if free_poses:
+                min_pose = min(free_poses, key=lambda p: p.clearance_mm)
+                p_pos = np.asarray(min_pose.position)
+                closest_pts, _, _ = trimesh.proximity.closest_point(model.validation_mesh.mesh, np.array([p_pos]))
+                c_pt = closest_pts[0]
+                
+                clearance_line = _line_polydata([(p_pos, c_pt)])
+                line_actor = self.interactor.add_mesh(
+                    clearance_line,
+                    color="magenta",
+                    line_width=3,
+                    opacity=1.0
+                )
+                self.controller.add(ActorRecord(line_actor, "min_clearance_markers"))
+                
+                sphere_actor = self.interactor.add_mesh(
+                    pv.Sphere(radius=2.0, center=c_pt),
+                    color="magenta",
+                    opacity=1.0
+                )
+                self.controller.add(ActorRecord(sphere_actor, "min_clearance_markers"))
+                
+                label_actor = self.interactor.add_point_labels(
+                    np.array([0.5 * (p_pos + c_pt)]),
+                    [f"Min Clearance: {min_pose.clearance_mm:.1f} mm"],
+                    font_size=10,
+                    text_color="magenta",
+                    always_visible=True
+                )
+                self.controller.add(ActorRecord(label_actor, "min_clearance_markers"))
+
         self.controller.refresh()
         self.fit_cad()
 

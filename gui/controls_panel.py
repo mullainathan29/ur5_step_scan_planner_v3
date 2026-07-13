@@ -20,6 +20,14 @@ LAYER_LABELS = {
     "recovery": "Recovery paths",
     "focused": "Focused hole orbits",
     "features": "Detected holes",
+    "mission_complete": "Complete mission",
+    "mission_scan": "Scan path",
+    "mission_free_travel": "Free-travel path",
+    "mission_start_end": "Mission start/end",
+    "mission_transition_waypoints": "Transition waypoints",
+    "safety_envelope": "Safety envelope",
+    "rejected_direct_transitions": "Rejected direct transitions",
+    "min_clearance_markers": "Minimum-clearance markers",
 }
 
 
@@ -108,15 +116,64 @@ class ControlsPanel(QtWidgets.QScrollArea):
         self.coverage_button = QtWidgets.QPushButton("Run coverage")
         self.recovery_button = QtWidgets.QPushButton("Generate recovery")
         self.optimise_button = QtWidgets.QPushButton("Optimise mission")
-        self.validate_button = QtWidgets.QPushButton("Validate")
+        self.build_mission_button = QtWidgets.QPushButton("Build continuous mission")
+        self.validate_button = QtWidgets.QPushButton("Validate mission")
+        self.export_mission_button = QtWidgets.QPushButton("Export mission")
         self.export_csv_button = QtWidgets.QPushButton("Export CSV")
         self.export_json_button = QtWidgets.QPushButton("Export JSON")
         self.cancel_button = QtWidgets.QPushButton("Cancel"); self.cancel_button.setEnabled(False)
         for widget in (self.generate_button, self.coverage_button, self.recovery_button,
-                       self.optimise_button, self.validate_button,
-                       self.export_csv_button, self.export_json_button, self.cancel_button):
+                       self.optimise_button, self.build_mission_button, self.validate_button,
+                       self.export_mission_button, self.export_csv_button, self.export_json_button,
+                       self.cancel_button):
             mission_layout.addWidget(widget)
         layout.addWidget(mission)
+
+        mission_stats = QtWidgets.QGroupBox("Mission Path")
+        mission_stats_layout = QtWidgets.QVBoxLayout(mission_stats)
+        self.stats_total_poses = QtWidgets.QLabel("Total poses: —")
+        self.stats_scan_poses = QtWidgets.QLabel("Scan poses: —")
+        self.stats_free_poses = QtWidgets.QLabel("Free-travel poses: —")
+        self.stats_scan_dist = QtWidgets.QLabel("Scan distance: —")
+        self.stats_free_dist = QtWidgets.QLabel("Free-travel distance: —")
+        self.stats_total_dist = QtWidgets.QLabel("Total path length: —")
+        self.stats_est_time = QtWidgets.QLabel("Estimated mission time: —")
+        self.stats_clearance = QtWidgets.QLabel("Min/Avg clearance: —")
+        self.stats_routing_strategies = QtWidgets.QLabel("Routing: —")
+        self.stats_extra_dist = QtWidgets.QLabel("Extra safety dist: —")
+        for label in (self.stats_total_poses, self.stats_scan_poses, self.stats_free_poses,
+                      self.stats_scan_dist, self.stats_free_dist, self.stats_total_dist,
+                      self.stats_est_time, self.stats_clearance, self.stats_routing_strategies,
+                      self.stats_extra_dist):
+            mission_stats_layout.addWidget(label)
+        layout.addWidget(mission_stats)
+
+        safe_travel = QtWidgets.QGroupBox("Safe Traversal")
+        safe_travel_form = QtWidgets.QFormLayout(safe_travel)
+        self.enable_safe_traverse = QtWidgets.QCheckBox()
+        self.enable_safe_traverse.setChecked(True)
+        self.enable_safe_traverse.setToolTip("Enables collision-aware routing around the safety envelope of the CAD part.")
+        self.safety_clearance = self._double_spin(80.0, 20.0, 300.0)
+        self.safety_clearance.setToolTip("Minimum distance from the scanner to the safety envelope boundary during free travel.")
+        self.prefer_top_clearance = QtWidgets.QCheckBox()
+        self.prefer_top_clearance.setChecked(False)
+        self.prefer_top_clearance.setToolTip("Forces paths to go above the bounding box instead of around the sides.")
+        self.show_safety_envelope = QtWidgets.QCheckBox()
+        self.show_safety_envelope.setChecked(True)
+        self.show_safety_envelope.setToolTip("Toggles transparent rendering of the safety envelope (AABB or OBB) in the viewer.")
+
+        safe_travel_form.addRow("Enable safe traverse", self.enable_safe_traverse)
+        safe_travel_form.addRow("Safety clearance (mm)", self.safety_clearance)
+        safe_travel_form.addRow("Prefer top clearance", self.prefer_top_clearance)
+        safe_travel_form.addRow("Show safety envelope", self.show_safety_envelope)
+        
+        # Connect signals directly to planning changed/layer changed if needed
+        self.enable_safe_traverse.toggled.connect(lambda: self.planning_changed.emit())
+        self.safety_clearance.valueChanged.connect(lambda: self.planning_changed.emit())
+        self.prefer_top_clearance.toggled.connect(lambda: self.planning_changed.emit())
+        self.show_safety_envelope.toggled.connect(lambda value: self.layer_changed.emit("safety_envelope", value))
+
+        layout.addWidget(safe_travel)
 
         layers = QtWidgets.QGroupBox("Viewer")
         layers_layout = QtWidgets.QVBoxLayout(layers)
@@ -174,6 +231,18 @@ class ControlsPanel(QtWidgets.QScrollArea):
         self.region_combo = QtWidgets.QComboBox(); self.face_combo = QtWidgets.QComboBox(); self.surface_combo = QtWidgets.QComboBox(); self.surface_combo.addItems(["All", "Plane", "Cylinder", "Cone", "Sphere"])
         self.only_selected_region = QtWidgets.QCheckBox()
 
+        # Hidden transition planning settings (managed via YAML/advanced overrides)
+        self.tool_envelope_radius = self._double_spin(60.0, 0.0, 1000.0)
+        self.envelope_type_widget = QtWidgets.QLineEdit("obb")
+        self.orientation_weight = self._double_spin(1.0, 0.0, 100.0)
+        self.vertical_motion_penalty = self._double_spin(50.0, 0.0, 1000.0)
+        self.corner_penalty = self._double_spin(20.0, 0.0, 1000.0)
+        self.proximity_penalty = self._double_spin(10.0, 0.0, 1000.0)
+        self.graph_waypoint_density = self._double_spin(2.0, 0.1, 10.0)
+        self.collision_sampling_interval = self._double_spin(5.0, 0.1, 100.0)
+        self.max_position_step = self._double_spin(20.0, 0.1, 1000.0)
+        self.max_orientation_step = self._double_spin(5.0, 0.1, 180.0)
+
     def _apply_tooltips(self) -> None:
         mapping = {
             self.planning_quality: "planning_quality", self.planning_mode: "planning_mode",
@@ -190,7 +259,8 @@ class ControlsPanel(QtWidgets.QScrollArea):
             widget.setToolTip(tooltip(field))
         action_tip = "Runs this pipeline stage using the current validated configuration."
         for widget in (self.upload_button, self.generate_button, self.coverage_button,
-                       self.recovery_button, self.optimise_button, self.validate_button,
+                       self.recovery_button, self.optimise_button, self.build_mission_button,
+                       self.validate_button, self.export_mission_button,
                        self.export_csv_button, self.export_json_button, self.cancel_button,
                        self.fit_cad_button, self.fit_trajectory_button,
                        self.reset_camera_button, self.advanced_button):
@@ -228,6 +298,22 @@ class ControlsPanel(QtWidgets.QScrollArea):
             "principal_coverage": {"top_sweep": self.top_sweep.isChecked(), "side_sweeps": self.side_sweeps.isChecked(), "upper_isometric_recovery": self.isometric_recovery.isChecked(), "bottom_coverage": self.bottom_coverage.isChecked()},
             "hole_recovery": {"enabled": self.enable_hole_recovery.isChecked(), "target_coverage_percent": self.hole_target_coverage.value(), "focused_conical_orbit": {"enabled": self.enable_focused_hole_orbit.isChecked()}},
             "mission": {"total_target_coverage_percent": self.total_target_coverage.value()},
+            "transition_planning": {
+                "enable_safe_traverse": self.enable_safe_traverse.isChecked(),
+                "safety_clearance_mm": self.safety_clearance.value(),
+                "prefer_top_clearance": self.prefer_top_clearance.isChecked(),
+                "show_safety_envelope": self.show_safety_envelope.isChecked(),
+                "tool_envelope_radius_mm": self.tool_envelope_radius.value(),
+                "envelope_type": self.envelope_type_widget.text(),
+                "orientation_weight": self.orientation_weight.value(),
+                "vertical_motion_penalty": self.vertical_motion_penalty.value(),
+                "corner_penalty": self.corner_penalty.value(),
+                "proximity_penalty": self.proximity_penalty.value(),
+                "graph_waypoint_density": self.graph_waypoint_density.value(),
+                "collision_sampling_interval_mm": self.collision_sampling_interval.value(),
+                "max_position_step_mm": self.max_position_step.value(),
+                "max_orientation_step_deg": self.max_orientation_step.value(),
+            }
         }
 
     def planning_config(self, step_path, output_dir=None):
@@ -245,6 +331,23 @@ class ControlsPanel(QtWidgets.QScrollArea):
         self.minimum_candidate_gain.setValue(config.minimum_candidate_gain_percent); self.maximum_optional_sweeps.setValue(config.maximum_optional_sweeps)
         self.hole_target_coverage.setValue(config.hole_target_coverage_percent); self.total_target_coverage.setValue(config.total_target_coverage_percent)
         self.enable_focused_hole_orbit.setChecked(config.enable_focused_hole_orbit)
+        
+        self.safety_clearance.setValue(config.safety_clearance_mm)
+        self.enable_safe_traverse.setChecked(config.enable_safe_traverse)
+        self.prefer_top_clearance.setChecked(config.prefer_top_clearance)
+        self.show_safety_envelope.setChecked(config.show_safety_envelope)
+        
+        self.tool_envelope_radius.setValue(config.tool_envelope_radius_mm)
+        self.envelope_type_widget.setText(config.envelope_type)
+        self.orientation_weight.setValue(config.orientation_weight)
+        self.vertical_motion_penalty.setValue(config.vertical_motion_penalty)
+        self.corner_penalty.setValue(config.corner_penalty)
+        self.proximity_penalty.setValue(config.proximity_penalty)
+        self.graph_waypoint_density.setValue(config.graph_waypoint_density)
+        self.collision_sampling_interval.setValue(config.collision_sampling_interval_mm)
+        self.max_position_step.setValue(config.max_position_step_mm)
+        self.max_orientation_step.setValue(config.max_orientation_step_deg)
+        
         self.planning_changed.emit(); self._refresh_candidate_estimate()
 
     def apply_fast_recovery_defaults(self) -> None:
@@ -295,3 +398,22 @@ class ControlsPanel(QtWidgets.QScrollArea):
         try: text = advanced_summary(self.planning_config(Path("model.step")))
         except Exception as exc: text = str(exc)
         dialog = QtWidgets.QMessageBox(self); dialog.setWindowTitle("Advanced settings"); dialog.setText("Advanced settings are loaded from config/*.yaml."); dialog.setDetailedText(text); dialog.exec()
+
+    def update_mission_stats(self, total_poses: int, scan_poses: int, free_poses: int,
+                             scan_dist: float, free_dist: float, total_dist: float, est_time: float) -> None:
+        self.stats_total_poses.setText(f"Total poses: {total_poses}")
+        self.stats_scan_poses.setText(f"Scan poses: {scan_poses}")
+        self.stats_free_poses.setText(f"Free-travel poses: {free_poses}")
+        self.stats_scan_dist.setText(f"Scan distance: {scan_dist:.1f} mm")
+        self.stats_free_dist.setText(f"Free-travel distance: {free_dist:.1f} mm")
+        self.stats_total_dist.setText(f"Total path length: {total_dist:.1f} mm")
+        self.stats_est_time.setText(f"Estimated mission time: {est_time:.1f} s")
+
+    def reset_mission_stats(self) -> None:
+        self.stats_total_poses.setText("Total poses: —")
+        self.stats_scan_poses.setText("Scan poses: —")
+        self.stats_free_poses.setText("Free-travel poses: —")
+        self.stats_scan_dist.setText("Scan distance: —")
+        self.stats_free_dist.setText("Free-travel distance: —")
+        self.stats_total_dist.setText("Total path length: —")
+        self.stats_est_time.setText("Estimated mission time: —")

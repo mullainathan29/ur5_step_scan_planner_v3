@@ -71,7 +71,9 @@ class MainWindow(QtWidgets.QMainWindow):
         c.coverage_button.clicked.connect(self.run_coverage)
         c.recovery_button.clicked.connect(self.generate_feature_recovery)
         c.optimise_button.clicked.connect(self.optimise_mission)
+        c.build_mission_button.clicked.connect(self.build_continuous_mission)
         c.validate_button.clicked.connect(self.validate_geometry)
+        c.export_mission_button.clicked.connect(self.export_mission)
         c.export_csv_button.clicked.connect(self.export_csv)
         c.export_json_button.clicked.connect(self.export_json)
         c.cancel_button.clicked.connect(self.cancel_worker)
@@ -216,6 +218,17 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     @QtCore.Slot()
+    def build_continuous_mission(self) -> None:
+        if self.result is None or self.config is None:
+            self._message("Generate paths first.")
+            return
+        self.config = self.controls.planning_config(self.step_path)
+        from gui.workers import BuildMissionWorker
+        self._start_worker(
+            BuildMissionWorker(self.result, self.config), self._result_updated
+        )
+
+    @QtCore.Slot()
     def validate_geometry(self) -> None:
         if self.result is None:
             self._message("Generate paths before validating geometry.")
@@ -242,6 +255,65 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         self._sync_layer_controls()
         self.apply_selection()
+
+        is_continuous = len(result.poses) > 0 and all(p.global_pose_id >= 0 for p in result.poses)
+        if is_continuous:
+            scan_dist = 0.0
+            free_dist = 0.0
+            for k in range(len(result.poses) - 1):
+                d = float(np.linalg.norm(np.asarray(result.poses[k+1].position) - np.asarray(result.poses[k].position)))
+                if result.poses[k].scan_status == -1 and result.poses[k+1].scan_status == -1:
+                    scan_dist += d
+                else:
+                    free_dist += d
+            total_dist = scan_dist + free_dist
+            scan_poses = sum(1 for p in result.poses if p.scan_status == -1)
+            free_poses = sum(1 for p in result.poses if p.scan_status == 0)
+            est_scan_time = scan_dist / 50.0
+            est_free_time = free_dist / 150.0
+            
+            mission_report = result.summary.output_files.get("mission_validation_report") if result.summary.output_files else None
+            self.controls.update_mission_stats(
+                total_poses=len(result.poses),
+                scan_poses=scan_poses,
+                free_poses=free_poses,
+                scan_dist=scan_dist,
+                free_dist=free_dist,
+                total_dist=total_dist,
+                est_time=est_scan_time + est_free_time,
+                report=mission_report
+            )
+        else:
+            self.controls.reset_mission_stats()
+
+        # Display mission validation report if generated in the worker
+        mission_report = result.summary.output_files.get("mission_validation_report") if result.summary.output_files else None
+        if mission_report:
+            msg = QtWidgets.QMessageBox(self)
+            valid = mission_report["valid"]
+            reasons = mission_report["reasons"]
+            if valid:
+                msg.setIcon(QtWidgets.QMessageBox.Icon.Information)
+                msg.setWindowTitle("Validation Successful")
+                text = (
+                    f"Mission path is fully valid!\n\n"
+                    f"• Scan blocks: {mission_report['num_scan_blocks']}\n"
+                    f"• Free-travel blocks: {mission_report['num_free_travel_blocks']}\n"
+                    f"• Full retracts: {mission_report['num_full_retracts']}\n"
+                    f"• Direct transitions: {mission_report['num_direct_transitions']}\n"
+                    f"• Scan distance: {mission_report['total_scan_distance']:.1f} mm\n"
+                    f"• Free-travel distance: {mission_report['total_free_travel_distance']:.1f} mm\n"
+                    f"• Largest position jump: {mission_report['largest_position_jump']:.1f} mm\n"
+                    f"• Largest orientation jump: {mission_report['largest_orientation_jump']:.1f} deg"
+                )
+                msg.setText(text)
+            else:
+                msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+                msg.setWindowTitle("Validation Failed")
+                reasons_text = "\n".join(f"• {r}" for r in reasons)
+                msg.setText("Mission validation found errors:")
+                msg.setDetailedText(reasons_text)
+            msg.exec()
 
     @QtCore.Slot()
     def mark_planning_dirty(self) -> None:
@@ -326,6 +398,37 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def export_json(self) -> None:
         self._copy_export("trajectory_json", "JSON files (*.json)")
+
+    @QtCore.Slot()
+    def export_mission(self) -> None:
+        if self.result is None:
+            self._message("Generate paths and build mission before exporting.")
+            return
+        is_built = len(self.result.poses) > 0 and all(p.global_pose_id >= 0 for p in self.result.poses)
+        is_validated = self.result.geometry_validation is not None
+        mission_report = self.result.summary.output_files.get("mission_validation_report") if (self.result.summary.output_files and self.result.geometry_validation) else None
+        
+        if not is_built or not is_validated or (mission_report and not mission_report["valid"]):
+            msg = QtWidgets.QMessageBox(self)
+            msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            msg.setWindowTitle("Export Warning")
+            msg.setText("The mission has not been successfully built and validated.")
+            msg.setInformativeText("Exporting now may result in invalid or unverified trajectory paths. Do you wish to continue?")
+            msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+            msg.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
+            if msg.exec() == QtWidgets.QMessageBox.StandardButton.No:
+                return
+
+        destination, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export continuous mission trajectory", "mission.json", "JSON files (*.json)"
+        )
+        if destination:
+            dest_path = Path(destination)
+            from exporter import export_staged_trajectory
+            export_staged_trajectory(dest_path, self.config, self.result.poses)
+            csv_dest = dest_path.with_suffix(".csv")
+            export_staged_trajectory(csv_dest, self.config, self.result.poses)
+            self.statusBar().showMessage(f"Exported continuous mission files to {dest_path.parent}", 5000)
 
     def _copy_export(self, key: str, file_filter: str) -> None:
         if self.result is None:

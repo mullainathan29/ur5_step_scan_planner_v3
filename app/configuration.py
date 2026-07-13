@@ -147,6 +147,19 @@ PATH_TO_FIELD = {
     "viewer.connector_stride": "connector_stride",
     "viewer.frame_stride": "frame_stride",
     "viewer.laser_footprint_stride": "laser_footprint_stride",
+    "transition_planning.safety_clearance_mm": "safety_clearance_mm",
+    "transition_planning.vertical_clearance_mm": "vertical_clearance_mm",
+    "transition_planning.tool_envelope_radius_mm": "tool_envelope_radius_mm",
+    "transition_planning.envelope_type": "envelope_type",
+    "transition_planning.enable_safe_traverse": "enable_safe_traverse",
+    "transition_planning.prefer_top_clearance": "prefer_top_clearance",
+    "transition_planning.show_safety_envelope": "show_safety_envelope",
+    "transition_planning.orientation_weight": "orientation_weight",
+    "transition_planning.vertical_motion_penalty": "vertical_motion_penalty",
+    "transition_planning.corner_penalty": "corner_penalty",
+    "transition_planning.proximity_penalty": "proximity_penalty",
+    "transition_planning.graph_waypoint_density": "graph_waypoint_density",
+    "transition_planning.collision_sampling_interval_mm": "collision_sampling_interval_mm",
 }
 
 
