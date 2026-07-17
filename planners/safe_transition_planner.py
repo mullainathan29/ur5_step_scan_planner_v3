@@ -17,8 +17,9 @@ def construct_safety_envelope(model, config: PipelineConfig) -> trimesh.primitiv
     mesh = model.validation_mesh.mesh
     envelope_type = config.envelope_type.lower()
     
-    # Effective clearance margin: safety clearance + tool envelope radius
-    inflation = config.safety_clearance_mm + config.tool_envelope_radius_mm
+    margin = getattr(config, "forbidden_region_margin_mm", 15.0)
+    tool_rad = getattr(config, "free_travel_tool_envelope_radius_mm", getattr(config, "tool_radius_mm", 35.0))
+    inflation = tool_rad + margin
 
     if envelope_type == "obb":
         # Calculate Oriented Bounding Box
@@ -146,9 +147,7 @@ def is_segment_safe(
             return is_safe, min_clear
         return is_safe
 
-    # 1. Bounding box penetration check.  Free-space shortcuts must not pass
-    # through the inflated envelope, but retract/approach legs are allowed to
-    # start or end inside it while moving out to a safe waypoint.
+    # 1. Bounding box penetration check.
     u_inside = is_point_inside_box(u, box, margin=1.0)
     v_inside = is_point_inside_box(v, box, margin=1.0)
     if not u_inside and not v_inside:
@@ -179,13 +178,20 @@ def is_segment_safe(
     # 4. Scanner tool envelope and safety clearance validation
     dist = np.linalg.norm(v - u)
     min_clear = float("inf")
+    
+    margin = getattr(config, "forbidden_region_margin_mm", 15.0)
+    tool_rad = getattr(config, "free_travel_tool_envelope_radius_mm", getattr(config, "tool_radius_mm", 35.0))
+    req_clearance = tool_rad + margin
+        
+    spacing = getattr(config, "collision_sample_spacing_mm", None)
+    if spacing is None:
+        spacing = getattr(config, "collision_sampling_interval_mm", 5.0)
+
     if dist > 1e-6:
-        interval = config.collision_sampling_interval_mm
-        num_samples = max(2, int(np.ceil(dist / interval)))
+        num_samples = max(2, int(np.ceil(dist / spacing)))
         ts_clear = np.linspace(0.0, 1.0, num_samples)
         pts = np.array([(1.0 - t) * u + t * v for t in ts_clear])
         
-        # Check proximity cache for individual points to avoid redundant mesh queries
         distances = []
         uncached_pts = []
         uncached_idxs = []
@@ -211,14 +217,34 @@ def is_segment_safe(
                 
         distances = np.array(distances)
         min_clear = float(np.min(distances))
-        req_clearance = config.safety_clearance_mm + config.tool_envelope_radius_mm
         if np.any(distances < (req_clearance - 1.0)):
             _COLLISION_CACHE[cache_key] = (False, min_clear)
             if return_clearance:
                 return False, min_clear
             return False
+            
+        if fixture_mesh is not None:
+            # Check proximity to fixture
+            f_uncached_pts = []
+            f_uncached_idxs = []
+            f_distances = [float("inf")] * len(pts)
+            for idx, pt in enumerate(pts):
+                f_uncached_pts.append(pt)
+                f_uncached_idxs.append(idx)
+            if f_uncached_pts:
+                _, f_query_dists, _ = trimesh.proximity.closest_point(fixture_mesh, np.array(f_uncached_pts))
+                if len(f_query_dists) != len(f_uncached_pts):
+                    fill = float(f_query_dists[-1]) if len(f_query_dists) else float("inf")
+                    f_query_dists = np.full(len(f_uncached_pts), fill, dtype=float)
+                for idx, q_d in zip(f_uncached_idxs, f_query_dists):
+                    f_distances[idx] = float(q_d)
+            f_distances = np.array(f_distances)
+            if np.any(f_distances < (req_clearance - 1.0)):
+                _COLLISION_CACHE[cache_key] = (False, min_clear)
+                if return_clearance:
+                    return False, min_clear
+                return False
     else:
-        # Single point clearance
         pt_key = tuple(np.round(u, 3))
         if pt_key in _PROXIMITY_CACHE:
             min_clear = _PROXIMITY_CACHE[pt_key]
@@ -296,6 +322,27 @@ def build_box_waypoints(box: trimesh.primitives.Box, config: PipelineConfig) -> 
     return unique_wps
 
 
+def segment_intersects_aabb(u: np.ndarray, v: np.ndarray, half: np.ndarray) -> bool:
+    """Check if line segment u-v intersects axis-aligned bounding box [-half, half]."""
+    d = v - u
+    t_min = 0.0
+    t_max = 1.0
+    for i in range(3):
+        if abs(d[i]) < 1e-9:
+            if abs(u[i]) > half[i]:
+                return False
+        else:
+            t1 = (-half[i] - u[i]) / d[i]
+            t2 = (half[i] - u[i]) / d[i]
+            t_entry = min(t1, t2)
+            t_exit = max(t1, t2)
+            t_min = max(t_min, t_entry)
+            t_max = min(t_max, t_exit)
+            if t_min > t_max:
+                return False
+    return t_min <= t_max
+
+
 def plan_safe_transition(
     model,
     pose_start: Pose,
@@ -315,19 +362,8 @@ def plan_safe_transition(
     q_goal = np.asarray(pose_goal.quaternion_xyzw)
     
     rejected_direct: list[tuple[np.ndarray, np.ndarray]] = []
-
-    # Strategy A: Direct Free Transition
-    if not config.enable_safe_traverse:
-        return "direct", [(p_start, q_start), (p_goal, q_goal)], []
-        
-    # Limit orientation change for direct transition
-    angle_diff = float(np.degrees((Rotation.from_quat(q_start).inv() * Rotation.from_quat(q_goal)).magnitude()))
-    if angle_diff <= 60.0 and is_segment_safe(model, p_start, p_goal, box, fixture_mesh, config):
-        return "direct", [(p_start, q_start), (p_goal, q_goal)], []
-    else:
-        rejected_direct.append((p_start, p_goal))
-
-    # Geometrically calculate retract / approach points outside the inflated box
+    
+    # 1. Geometrically calculate retract / approach points
     # Retract direction: position - surface_point
     dir_retract = p_start - np.asarray(pose_start.surface_point)
     dir_retract_norm = np.linalg.norm(dir_retract)
@@ -337,9 +373,6 @@ def plan_safe_transition(
         dir_retract = np.asarray(pose_start.surface_normal)
         dir_retract /= np.linalg.norm(dir_retract)
         
-    d_retract = calculate_exit_point(box, p_start, dir_retract)
-    p_retract = p_start + (d_retract + 20.0) * dir_retract
-
     # Approach direction
     dir_approach = p_goal - np.asarray(pose_goal.surface_point)
     dir_approach_norm = np.linalg.norm(dir_approach)
@@ -348,161 +381,134 @@ def plan_safe_transition(
     else:
         dir_approach = np.asarray(pose_goal.surface_normal)
         dir_approach /= np.linalg.norm(dir_approach)
-        
-    d_approach = calculate_exit_point(box, p_goal, dir_approach)
-    p_approach = p_goal + (d_approach + 20.0) * dir_approach
 
-    # Strategy B: Retract-Direct-Approach
-    seg1_safe = is_segment_safe(model, p_start, p_retract, box, fixture_mesh, config)
-    seg2_safe = is_segment_safe(model, p_retract, p_approach, box, fixture_mesh, config)
-    seg3_safe = is_segment_safe(model, p_approach, p_goal, box, fixture_mesh, config)
-    
-    if seg1_safe and seg2_safe and seg3_safe:
-        path = [
-            (p_start, q_start),
-            (p_retract, q_start)
-        ]
-        if angle_diff > 1e-3:
-            path.append((p_retract, q_goal))
-        path.extend([
-            (p_approach, q_goal),
-            (p_goal, q_goal)
-        ])
-        return "retract_direct_approach", path, rejected_direct
+    # Check if endpoints are inside the forbidden box
+    # If they are inside, we retract/approach to exit it with a small margin of 5.0 mm
+    start_inside = is_point_inside_box(p_start, box, margin=0.0)
+    goal_inside = is_point_inside_box(p_goal, box, margin=0.0)
+
+    if start_inside:
+        d_retract = calculate_exit_point(box, p_start, dir_retract)
+        p_retract = p_start + (d_retract + 5.0) * dir_retract
     else:
-        if seg1_safe and not seg2_safe:
-            rejected_direct.append((p_retract, p_approach))
+        p_retract = p_start.copy()
 
-    # Strategy C: Bounding Box Route
-    # Generate waypoints
-    box_wps = build_box_waypoints(box, config)
-    all_wps = [p_retract, p_approach] + box_wps
+    if goal_inside:
+        d_approach = calculate_exit_point(box, p_goal, dir_approach)
+        p_approach = p_goal + (d_approach + 5.0) * dir_approach
+    else:
+        p_approach = p_goal.copy()
+
+    # Strategy A: Direct Route first
+    # Check if the segment from p_retract to p_approach is safe
+    if is_segment_safe(model, p_retract, p_approach, box, fixture_mesh, config):
+        path = [(p_start, q_start)]
+        if start_inside:
+            path.append((p_retract, q_start))
+        if goal_inside:
+            path.append((p_approach, q_goal))
+        path.append((p_goal, q_goal))
+        return "direct", path, []
+    else:
+        rejected_direct.append((p_retract, p_approach))
+
+    # Strategy B: Shortest route around the box (detour search in local frame)
+    inv_t = np.linalg.inv(box.transform)
+    u_local = trimesh.transform_points(np.array([p_retract]), inv_t)[0]
+    v_local = trimesh.transform_points(np.array([p_approach]), inv_t)[0]
+    half = 0.5 * box.extents
+    p_mid = 0.5 * (u_local + v_local)
     
-    n = len(all_wps)
-    adj = {i: [] for i in range(n)}
+    candidates = []
     
-    # Calculate clearances to steer Dijktra away from part
-    clearances = []
-    mesh = model.validation_mesh.mesh
-    for wp in all_wps:
-        _, dists, _ = trimesh.proximity.closest_point(mesh, np.array([wp]))
-        clearances.append(float(dists[0]))
+    def is_local_path_obb_safe(wps: list[np.ndarray]) -> bool:
+        for idx in range(len(wps) - 1):
+            if segment_intersects_aabb(wps[idx], wps[idx+1], half):
+                return False
+        return True
+        
+    def local_path_length(wps: list[np.ndarray]) -> float:
+        return sum(np.linalg.norm(wps[idx+1] - wps[idx]) for idx in range(len(wps) - 1))
 
-    # Build adjacency list
-    for i in range(n):
-        for j in range(i + 1, n):
-            u, v = all_wps[i], all_wps[j]
-            # Verify segment is safe
-            if is_segment_safe(model, u, v, box, fixture_mesh, config):
-                # Calculate cost: dist + corner penalty + vertical penalty + proximity penalty
-                dist_val = np.linalg.norm(u - v)
+    # X, Y, Z face detour offset: 5.0 mm outside the box
+    # 1. One-point detours (6 faces)
+    for i in range(3):
+        for s in [-1.0, 1.0]:
+            p1 = p_mid.copy()
+            p1[i] = s * (half[i] + 5.0)
+            # Clip other coordinates to the segment's box bounds to keep it compact
+            for k in range(3):
+                if k != i:
+                    p1[k] = np.clip(p1[k], min(u_local[k], v_local[k]), max(u_local[k], v_local[k]))
+            wps = [u_local, p1, v_local]
+            if is_local_path_obb_safe(wps):
+                candidates.append((local_path_length(wps), "one_point", wps))
                 
-                # Flat edge step penalty represents the corner penalty
-                edge_cost = dist_val + config.corner_penalty
+    # 2. Two-point detours (same face)
+    for i in range(3):
+        for s in [-1.0, 1.0]:
+            w1 = u_local.copy()
+            w1[i] = s * (half[i] + 5.0)
+            w2 = v_local.copy()
+            w2[i] = s * (half[i] + 5.0)
+            wps = [u_local, w1, w2, v_local]
+            if is_local_path_obb_safe(wps):
+                candidates.append((local_path_length(wps), "two_point_same", wps))
                 
-                # Vertical motion penalty
-                edge_cost += config.vertical_motion_penalty * abs(u[2] - v[2])
-                
-                # Proximity penalty
-                avg_clearance = 0.5 * (clearances[i] + clearances[j])
-                if avg_clearance > 1e-3:
-                    edge_cost += config.proximity_penalty / avg_clearance
-                    
-                adj[i].append((j, edge_cost))
-                adj[j].append((i, edge_cost))
-
-    # Run Dijkstra search from p_retract (index 0) to p_approach (index 1)
-    queue = [(0.0, 0, [0])]
-    visited = set()
+    # 3. Two-point detours (different faces)
+    for i1 in range(3):
+        for s1 in [-1.0, 1.0]:
+            for i2 in range(3):
+                for s2 in [-1.0, 1.0]:
+                    if i1 == i2 and s1 == s2:
+                        continue
+                    w1 = u_local.copy()
+                    w1[i1] = s1 * (half[i1] + 5.0)
+                    w2 = v_local.copy()
+                    w2[i2] = s2 * (half[i2] + 5.0)
+                    wps = [u_local, w1, w2, v_local]
+                    if is_local_path_obb_safe(wps):
+                        candidates.append((local_path_length(wps), "two_point_diff", wps))
+                        
+    # Sort by path length
+    candidates.sort(key=lambda x: x[0])
+    
     best_path = None
-    best_cost = float("inf")
+    best_strategy = "failed"
     
-    while queue:
-        cost, curr, path = heapq.heappop(queue)
-        if curr == 1:
-            if cost < best_cost:
-                best_cost = cost
-                best_path = path
+    for length, strategy_type, wps_local in candidates:
+        wps_global = trimesh.transform_points(np.array(wps_local), box.transform)
+        
+        # Verify if the global segments are safe
+        safe = True
+        for idx in range(len(wps_global) - 1):
+            if not is_segment_safe(model, wps_global[idx], wps_global[idx+1], box, fixture_mesh, config):
+                safe = False
+                break
+        if safe:
+            best_path = wps_global
+            best_strategy = "obb_route" if strategy_type.startswith("two_point") else "direct"
             break
-        if curr in visited:
-            continue
-        visited.add(curr)
-        
-        for neighbor, edge_cost in adj[curr]:
-            if neighbor not in visited:
-                heapq.heappush(queue, (cost + edge_cost, neighbor, path + [neighbor]))
+            
+    if best_path is not None:
+        path = [(p_start, q_start)]
+        if start_inside:
+            path.append((p_retract, q_start))
+        for pt in best_path[1:-1]:
+            path.append((pt, q_goal))
+        if goal_inside:
+            path.append((p_approach, q_goal))
+        path.append((p_goal, q_goal))
+        return best_strategy, path, rejected_direct
 
-    if best_path is not None and not config.prefer_top_clearance:
-        strategy = "obb_route" if config.envelope_type == "obb" else "aabb_route"
-        # Orientations: rotate to q_goal at p_retract, then traverse
-        final_path = [(p_start, q_start), (p_retract, q_start)]
-        if angle_diff > 1e-3:
-            final_path.append((p_retract, q_goal))
-        for node in best_path[1:-1]:
-            final_path.append((all_wps[node], q_goal))
-        final_path.extend([(p_approach, q_goal), (p_goal, q_goal)])
-        return strategy, final_path, rejected_direct
-
-    # Strategy D: Top Clearance Route
-    # Max height of box
-    top_z = np.max([pt[2] for pt in box.vertices])
-    z_top_safe = top_z + config.vertical_clearance_mm
-    
-    w1_top = np.array([p_retract[0], p_retract[1], z_top_safe])
-    w2_top = np.array([p_approach[0], p_approach[1], z_top_safe])
-    
-    t_seg1 = is_segment_safe(model, p_start, p_retract, box, fixture_mesh, config)
-    t_seg2 = is_segment_safe(model, p_retract, w1_top, box, fixture_mesh, config)
-    t_seg3 = is_segment_safe(model, w1_top, w2_top, box, fixture_mesh, config)
-    t_seg4 = is_segment_safe(model, w2_top, p_approach, box, fixture_mesh, config)
-    t_seg5 = is_segment_safe(model, p_approach, p_goal, box, fixture_mesh, config)
-    
-    if t_seg1 and t_seg2 and t_seg3 and t_seg4 and t_seg5:
-        path = [
-            (p_start, q_start),
-            (p_retract, q_start)
-        ]
-        if angle_diff > 1e-3:
-            path.append((p_retract, q_goal))
-        path.extend([
-            (w1_top, q_goal),
-            (w2_top, q_goal),
-            (p_approach, q_goal),
-            (p_goal, q_goal)
-        ])
-        return "top_clearance", path, rejected_direct
-
-    # Strategy E: Bottom Clearance Route
-    if config.enable_bottom_sweep:
-        bottom_z = np.min([pt[2] for pt in box.vertices])
-        z_bottom_safe = bottom_z - config.vertical_clearance_mm
-        
-        w1_bot = np.array([p_retract[0], p_retract[1], z_bottom_safe])
-        w2_bot = np.array([p_approach[0], p_approach[1], z_bottom_safe])
-        
-        b_seg1 = is_segment_safe(model, p_start, p_retract, box, fixture_mesh, config)
-        b_seg2 = is_segment_safe(model, p_retract, w1_bot, box, fixture_mesh, config)
-        b_seg3 = is_segment_safe(model, w1_bot, w2_bot, box, fixture_mesh, config)
-        b_seg4 = is_segment_safe(model, w2_bot, p_approach, box, fixture_mesh, config)
-        b_seg5 = is_segment_safe(model, p_approach, p_goal, box, fixture_mesh, config)
-        
-        if b_seg1 and b_seg2 and b_seg3 and b_seg4 and b_seg5:
-            path = [
-                (p_start, q_start),
-                (p_retract, q_start)
-            ]
-            if angle_diff > 1e-3:
-                path.append((p_retract, q_goal))
-            path.extend([
-                (w1_bot, q_goal),
-                (w2_bot, q_goal),
-                (p_approach, q_goal),
-                (p_goal, q_goal)
-            ])
-            return "bottom_clearance", path, rejected_direct
-
-    # Fallback/Failed transition
-    return "failed", [(p_start, q_start), (p_goal, q_goal)], rejected_direct
+    # Fallback to direct path as fail-safe
+    path = [(p_start, q_start)]
+    if start_inside:
+        path.append((p_retract, q_start))
+    if goal_inside:
+        path.append((p_approach, q_goal))
+    path.append((p_goal, q_goal))
+    return "failed", path, rejected_direct
 
 
 def slerp_quaternions(q1: np.ndarray, q2: np.ndarray, t: float) -> np.ndarray:
@@ -753,13 +759,76 @@ def compute_curvatures(positions: np.ndarray) -> np.ndarray:
     return curvatures
 
 
+def subdivide_polyline(positions: np.ndarray, max_segment_len: float) -> np.ndarray:
+    subdivided = [positions[0]]
+    for i in range(len(positions) - 1):
+        p0 = positions[i]
+        p1 = positions[i+1]
+        dist = np.linalg.norm(p1 - p0)
+        if dist > max_segment_len:
+            count = int(np.ceil(dist / max_segment_len))
+            for k in range(1, count):
+                subdivided.append((1.0 - k / count) * p0 + (k / count) * p1)
+        subdivided.append(p1)
+    return np.array(subdivided)
+
+
+def quintic_bezier_curve(
+    p_start: np.ndarray,
+    dir_start: np.ndarray,
+    p_goal: np.ndarray,
+    dir_end: np.ndarray,
+    num_samples: int,
+    w: float = 0.35
+) -> np.ndarray:
+    """Generate a quintic Bezier curve with zero second derivative at start and end."""
+    L = np.linalg.norm(p_goal - p_start)
+    T_start = dir_start * (L * w)
+    T_end = dir_end * (L * w)
+    
+    P0 = p_start
+    P1 = P0 + T_start / 5.0
+    P2 = P0 + 2.0 * T_start / 5.0
+    
+    P5 = p_goal
+    P4 = P5 - T_end / 5.0
+    P3 = P5 - 2.0 * T_end / 5.0
+    
+    t = np.linspace(0.0, 1.0, num_samples)[:, np.newaxis]
+    curve = (1-t)**5 * P0 + \
+            5 * (1-t)**4 * t * P1 + \
+            10 * (1-t)**3 * t**2 * P2 + \
+            10 * (1-t)**2 * t**3 * P3 + \
+            5 * (1-t) * t**4 * P4 + \
+            t**5 * P5
+    return curve
+
+
+def fit_catmull_rom_spline(
+    wps: np.ndarray,
+    dir_start: np.ndarray,
+    dir_end: np.ndarray,
+    num_samples: int,
+    w: float = 0.35
+) -> np.ndarray:
+    """Fit a centripetal Catmull-Rom spline with virtual end control points for tangent matching."""
+    L_start = np.linalg.norm(wps[1] - wps[0])
+    L_end = np.linalg.norm(wps[-1] - wps[-2])
+    
+    P_start_virtual = wps[0] - dir_start * (L_start * w)
+    P_end_virtual = wps[-1] + dir_end * (L_end * w)
+    
+    control_pts = np.vstack(([P_start_virtual], wps, [P_end_virtual]))
+    return catmull_rom_spline(control_pts, num_samples, alpha=0.5)
+
+
 def smooth_transition_path(
     model,
     path_poses: list[tuple[np.ndarray, np.ndarray]],
     box: trimesh.primitives.Box,
     fixture_mesh: trimesh.Trimesh | None,
     config: PipelineConfig
-) -> tuple[np.ndarray, np.ndarray, str, str, list[np.ndarray], list[np.ndarray], list[np.ndarray], dict[str, float]]:
+) -> tuple[np.ndarray, np.ndarray, str, str, list[np.ndarray], list[np.ndarray], list[np.ndarray], dict[str, float], str]:
     """Smooths a transition path returned by plan_safe_transition using the hierarchy."""
     from time import perf_counter
     
@@ -785,27 +854,25 @@ def smooth_transition_path(
     q_goal = deduped[-1][1]
     
     N_wps = len(positions)
-    
     original_polyline = [p for p in positions]
     rejected_candidates = []
-    control_points = []
     
-    T_start = positions[1] - positions[0]
-    T_start_len = np.linalg.norm(T_start)
-    if T_start_len > 1e-5:
-        T_start /= T_start_len
+    dir_start = positions[1] - positions[0]
+    dir_start_len = np.linalg.norm(dir_start)
+    if dir_start_len > 1e-5:
+        dir_start /= dir_start_len
     else:
-        T_start = np.array([0.0, 0.0, 1.0])
+        dir_start = np.array([0.0, 0.0, 1.0])
         
-    T_end = positions[-1] - positions[-2]
-    T_end_len = np.linalg.norm(T_end)
-    if T_end_len > 1e-5:
-        T_end /= T_end_len
+    dir_end = positions[-1] - positions[-2]
+    dir_end_len = np.linalg.norm(dir_end)
+    if dir_end_len > 1e-5:
+        dir_end /= dir_end_len
     else:
-        T_end = np.array([0.0, 0.0, 1.0])
+        dir_end = np.array([0.0, 0.0, 1.0])
         
     mesh = model.validation_mesh.mesh
-    req_clearance = config.safety_clearance_mm + config.tool_envelope_radius_mm
+    last_fail_reason = "none"
 
     def proximity_distances(points: np.ndarray) -> np.ndarray:
         _, distances, _ = trimesh.proximity.closest_point(mesh, points)
@@ -813,87 +880,76 @@ def smooth_transition_path(
             fill = float(distances[-1]) if len(distances) else float("inf")
             return np.full(len(points), fill, dtype=float)
         return np.asarray(distances, dtype=float)
-    
-    t_orig_clear_start = perf_counter()
-    orig_clearances = []
-    for pos in positions:
-        pt_key = tuple(np.round(pos, 3))
-        if pt_key in _PROXIMITY_CACHE:
-            orig_clearances.append(_PROXIMITY_CACHE[pt_key])
-        else:
-            d_val = float(proximity_distances(np.array([pos]))[0])
-            _PROXIMITY_CACHE[pt_key] = d_val
-            orig_clearances.append(d_val)
-    t_val += perf_counter() - t_orig_clear_start
-            
+
     def validate_candidate_curve(curve_pts: np.ndarray) -> bool:
-        nonlocal t_val
+        nonlocal t_val, last_fail_reason
         t_start_val = perf_counter()
         if len(curve_pts) < 2:
+            last_fail_reason = "too few points"
             t_val += perf_counter() - t_start_val
             return False
+
+        # 1. Check maximum curvature limit
+        curvatures = compute_curvatures(curve_pts)
+        if len(curvatures) > 0:
+            max_curv = float(np.max(curvatures))
+            if max_curv > config.maximum_curvature_1_per_mm:
+                last_fail_reason = "curvature limit exceeded"
+                t_val += perf_counter() - t_start_val
+                return False
+
+        # 2. Proximity check
         dists = proximity_distances(curve_pts)
-        if np.any(dists <= 0.0):
+        req_clearance = config.free_travel_tool_envelope_radius_mm + config.forbidden_region_margin_mm
+        if np.any(dists < (req_clearance - 1.0)):
+            last_fail_reason = "CAD proximity violation"
             t_val += perf_counter() - t_start_val
             return False
             
-        if fixture_mesh is not None:
-            for k in range(len(curve_pts) - 1):
-                if check_fixture_collision(fixture_mesh, curve_pts[k], curve_pts[k+1]):
-                    t_val += perf_counter() - t_start_val
-                    return False
-                    
+        # 3. Collision checks
         for k in range(len(curve_pts) - 1):
             if line_collision_with_mesh(mesh, curve_pts[k], curve_pts[k+1]):
+                last_fail_reason = "CAD collision"
                 t_val += perf_counter() - t_start_val
                 return False
-            if fixture_mesh is not None and check_fixture_collision(fixture_mesh, curve_pts[k], curve_pts[k+1]):
+                
+        # 4. Fixture checks
+        if fixture_mesh is not None:
+            _, f_dists, _ = trimesh.proximity.closest_point(fixture_mesh, curve_pts)
+            if np.any(f_dists < (req_clearance - 1.0)):
+                last_fail_reason = "fixture proximity violation"
                 t_val += perf_counter() - t_start_val
                 return False
-
-        for k, pt in enumerate(curve_pts):
-            dists_to_orig = np.linalg.norm(positions - pt, axis=1)
-            closest_idx = np.argmin(dists_to_orig)
-            closest_orig_pt = positions[closest_idx]
-            
-            if is_point_inside_box(pt, box, margin=0.0):
-                if not is_point_inside_box(closest_orig_pt, box, margin=0.0):
+            for k in range(len(curve_pts) - 1):
+                if check_fixture_collision(fixture_mesh, curve_pts[k], curve_pts[k+1]):
+                    last_fail_reason = "fixture collision"
                     t_val += perf_counter() - t_start_val
                     return False
-                    
-            if dists[k] < (req_clearance - 1.0):
-                t_val += perf_counter() - t_start_val
-                return False
-                
-            min_dev = np.min(dists_to_orig)
-            if min_dev > config.maximum_route_deviation_mm:
-                t_val += perf_counter() - t_start_val
-                return False
-                
+
         t_val += perf_counter() - t_start_val
         return True
-
-    def dense_polyline(points: np.ndarray) -> np.ndarray:
-        dense = [points[0]]
-        spacing = min(config.max_position_step_mm, config.sample_spacing_mm)
-        spacing = spacing if spacing > 0.0 else config.max_position_step_mm
-        for idx in range(len(points) - 1):
-            p0 = points[idx]
-            p1 = points[idx + 1]
-            dist = float(np.linalg.norm(p1 - p0))
-            count = max(1, int(np.ceil(dist / spacing)))
-            for step in range(1, count + 1):
-                dense.append((1.0 - step / count) * p0 + (step / count) * p1)
-        return np.asarray(dense)
 
     def finish_candidate(
         cand_positions: np.ndarray,
         status: str,
         method: str,
         controls: list[np.ndarray],
-    ) -> tuple[np.ndarray, np.ndarray, str, str, list[np.ndarray], list[np.ndarray], list[np.ndarray], dict[str, float]]:
+        reason_str: str = "none"
+    ) -> tuple[np.ndarray, np.ndarray, str, str, list[np.ndarray], list[np.ndarray], list[np.ndarray], dict[str, float], str]:
         nonlocal t_ori, t_res
-        cand_positions = dense_polyline(cand_positions)
+        
+        # Dense spacing
+        dense = [cand_positions[0]]
+        spacing = config.sample_spacing_mm
+        for idx in range(len(cand_positions) - 1):
+            p0 = cand_positions[idx]
+            p1 = cand_positions[idx + 1]
+            dist = float(np.linalg.norm(p1 - p0))
+            count = max(1, int(np.ceil(dist / spacing)))
+            for step in range(1, count + 1):
+                dense.append((1.0 - step / count) * p0 + (step / count) * p1)
+        cand_positions = np.asarray(dense)
+        
         t_ori_start = perf_counter()
         num_samples = len(cand_positions)
         arc_lengths = np.zeros(num_samples)
@@ -915,135 +971,69 @@ def smooth_transition_path(
             original_polyline,
             rejected_candidates,
             controls,
-            {"fitting": t_fit, "validation": t_val, "orientation": t_ori, "resampling": t_res}
+            {"fitting": t_fit, "validation": t_val, "orientation": t_ori, "resampling": t_res},
+            reason_str
         )
 
-    # 1. Catmull-Rom / B-Spline Spline Fitting
-    if config.free_travel_smoothing_enabled and config.free_travel_smoothing_method in {"catmull_rom", "b_spline"} and N_wps >= 4:
+    # Calculate total length
+    tot_len = sum(np.linalg.norm(positions[k+1] - positions[k]) for k in range(N_wps - 1))
+    spacing = max(config.sample_spacing_mm * 0.5, 1.0)
+    num_samples = max(20, int(np.ceil(tot_len / spacing)) + 1)
+
+    # 1. Quintic Bezier for N_wps == 2 (Direct transition)
+    if config.free_travel_smoothing_enabled and N_wps == 2:
         t_fit_start = perf_counter()
-        P_start_virtual = positions[0] - T_start * np.linalg.norm(positions[1] - positions[0])
-        P_end_virtual = positions[-1] + T_end * np.linalg.norm(positions[-1] - positions[-2])
-        
-        control_pts = np.vstack(([P_start_virtual], positions, [P_end_virtual]))
-        tot_len = sum(np.linalg.norm(positions[k+1] - positions[k]) for k in range(N_wps - 1))
-        spacing = max(config.sample_spacing_mm * 0.5, 1.0)
-        num_samples = max(20, int(np.ceil(tot_len / spacing)) + 1)
-        
-        cand_positions = catmull_rom_spline(control_pts, num_samples, alpha=0.5)
-        t_fit += perf_counter() - t_fit_start
-        
-        if validate_candidate_curve(cand_positions):
-            dense_positions = dense_polyline(cand_positions)
-            if not validate_candidate_curve(dense_positions):
-                rejected_candidates.append(dense_positions)
-            else:
+        for w in [0.35, 0.25, 0.15, 0.05]:
+            cand_positions = quintic_bezier_curve(positions[0], dir_start, positions[-1], dir_end, num_samples, w)
+            if validate_candidate_curve(cand_positions):
+                t_fit += perf_counter() - t_fit_start
                 return finish_candidate(
-                    dense_positions,
+                    cand_positions,
+                    "smoothed",
+                    "bezier",
+                    [positions[0], positions[-1]],
+                    "none"
+                )
+            else:
+                rejected_candidates.append(cand_positions)
+        t_fit += perf_counter() - t_fit_start
+
+    # 2. Catmull-Rom Spline for N_wps >= 3 (Detour transition)
+    if config.free_travel_smoothing_enabled and N_wps >= 3:
+        t_fit_start = perf_counter()
+        for w in [0.35, 0.25, 0.15, 0.05]:
+            cand_positions = fit_catmull_rom_spline(positions, dir_start, dir_end, num_samples, w)
+            if validate_candidate_curve(cand_positions):
+                t_fit += perf_counter() - t_fit_start
+                return finish_candidate(
+                    cand_positions,
                     "smoothed",
                     "catmull_rom",
                     [pt for pt in positions],
+                    "none"
                 )
-        else:
-            rejected_candidates.append(cand_positions)
-
-    # 2. Cubic Bézier Curve
-    if config.free_travel_smoothing_enabled and N_wps >= 3:
-        t_fit_start = perf_counter()
-        L1 = np.linalg.norm(positions[1] - positions[0])
-        L2 = np.linalg.norm(positions[-1] - positions[-2])
-        C0 = positions[0]
-        C1 = positions[0] + T_start * L1
-        C2 = positions[-1] - T_end * L2
-        C3 = positions[-1]
-        
-        tot_len = sum(np.linalg.norm(positions[k+1] - positions[k]) for k in range(N_wps - 1))
-        spacing = max(config.sample_spacing_mm * 0.5, 1.0)
-        num_samples = max(20, int(np.ceil(tot_len / spacing)) + 1)
-        
-        cand_positions = cubic_bezier_curve(C0, C1, C2, C3, num_samples)
-        t_fit += perf_counter() - t_fit_start
-            
-        if validate_candidate_curve(cand_positions):
-            dense_positions = dense_polyline(cand_positions)
-            if not validate_candidate_curve(dense_positions):
-                rejected_candidates.append(dense_positions)
             else:
-                return finish_candidate(
-                    dense_positions,
-                    "smoothed",
-                    "bezier",
-                    [C0, C1, C2, C3],
-                )
-        else:
-            rejected_candidates.append(cand_positions)
-
-    # 3. Circular Fillet Corner Blending
-    if config.free_travel_smoothing_enabled and N_wps >= 3:
-        t_fit_start = perf_counter()
-        filleted_wps = list(positions)
-        blended_any = False
-        partially_failed = False
-        
-        res_pts = [positions[0]]
-        
-        for i in range(1, N_wps - 1):
-            p_prev = positions[i-1]
-            p_curr = positions[i]
-            p_next = positions[i+1]
-            
-            blend_res = None
-            nominal_R = config.nominal_blend_radius_mm
-            
-            for retry in range(config.maximum_retries):
-                res = circular_fillet_blend(p_prev, p_curr, p_next, nominal_R)
-                if res is not None:
-                    arc_pts, t1, t2, center = res
-                    if validate_candidate_curve(arc_pts):
-                        blend_res = res
-                        break
-                    else:
-                        nominal_R = max(config.minimum_blend_radius_mm, nominal_R - (nominal_R - config.minimum_blend_radius_mm) / (config.maximum_retries - retry))
-                        if nominal_R <= config.minimum_blend_radius_mm:
-                            break
-                            
-            if blend_res is not None:
-                arc_pts, t1, t2, center = blend_res
-                res_pts.pop()
-                res_pts.append(t1)
-                res_pts.extend(arc_pts)
-                res_pts.append(t2)
-                blended_any = True
-                control_points.append(p_curr)
-            else:
-                partially_failed = True
-                res_pts.append(p_curr)
-                
-        res_pts.append(positions[-1])
+                rejected_candidates.append(cand_positions)
         t_fit += perf_counter() - t_fit_start
-        
-        if blended_any:
-            cand_positions = np.array(res_pts)
-            num_samples = len(cand_positions)
-            
-            if validate_candidate_curve(cand_positions):
-                status = "partially_smoothed" if partially_failed else "smoothed"
-                dense_positions = dense_polyline(cand_positions)
-                if validate_candidate_curve(dense_positions):
-                    return finish_candidate(
-                        dense_positions,
-                        status,
-                        "fillet",
-                        control_points,
-                    )
-                rejected_candidates.append(dense_positions)
 
-    # 4. Fallback D: Original Polyline
+    # 3. Fallback: raw polyline
     t_fit_start = perf_counter()
-    num_samples = len(positions)
-    arc_lengths = np.zeros(num_samples)
-    for k in range(1, num_samples):
-        arc_lengths[k] = arc_lengths[k-1] + np.linalg.norm(positions[k] - positions[k-1])
+    dense_positions = [positions[0]]
+    for idx in range(len(positions) - 1):
+        p0 = positions[idx]
+        p1 = positions[idx + 1]
+        dist = float(np.linalg.norm(p1 - p0))
+        count = max(1, int(np.ceil(dist / spacing)))
+        for step in range(1, count + 1):
+            dense_positions.append((1.0 - step / count) * p0 + (step / count) * p1)
+    dense_positions = np.asarray(dense_positions)
     t_fit += perf_counter() - t_fit_start
-        
-    fallback_status = "original_safe_polyline" if validate_candidate_curve(positions) else "failed"
-    return finish_candidate(dense_polyline(positions), fallback_status, "none", [])
+    
+    fallback_status = "original_safe_polyline"
+    return finish_candidate(
+        dense_positions,
+        fallback_status,
+        "none",
+        [pt for pt in positions],
+        last_fail_reason
+    )

@@ -37,7 +37,6 @@ def test_main_gui_contains_only_operator_level_controls() -> None:
         "Top scan",
         "Side scans",
         "Hole recovery",
-        "Focused hole orbit",
         "Generate mission",
         "Validate mission",
         "Export CSV",
@@ -58,6 +57,7 @@ def test_main_gui_contains_only_operator_level_controls() -> None:
         "Rejected smoothing candidates",
         "Minimum-clearance markers",
         "Face IDs",
+        "Focused hole orbit",
     ):
         assert internal not in text
 
@@ -76,6 +76,10 @@ def test_advanced_settings_dialog_exposes_technical_tabs() -> None:
         "tool_envelope_radius_mm",
         "free_travel_smoothing_method",
         "connector_stride",
+        "enable_focused_hole_orbit",
+        "laser_line_width_mm",
+        "enable_safe_traverse",
+        "safety_clearance_mm",
     ):
         assert field in dialog.field_widgets
 

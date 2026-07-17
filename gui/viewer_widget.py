@@ -34,6 +34,15 @@ LAYER_DEFAULTS = {
     "min_clearance_markers": False,
 }
 
+DEV_LAYERS = {
+    "nominal", "scanner", "transition", "connectors", "frames",
+    "laser", "labels", "recovery", "focused", "features",
+    "mission_complete", "mission_transition_waypoints",
+    "mission_original_safe_polyline", "mission_smoothing_control_points",
+    "mission_rejected_smoothing", "safety_envelope",
+    "rejected_direct_transitions", "min_clearance_markers"
+}
+
 
 @dataclass
 class ActorRecord:
@@ -56,6 +65,7 @@ class LayerController:
         self.surface_type: str | None = None
         self.only_selected_region = False
         self.selected_hole_id = -1
+        self.developer_mode = True
 
     def add(self, record: ActorRecord) -> None:
         self.records.append(record)
@@ -63,9 +73,14 @@ class LayerController:
     def refresh(self) -> None:
         complete_visible = self.layer_visibility.get("mission_complete", True)
         for record in self.records:
+            if record.layer in DEV_LAYERS and not self.developer_mode:
+                record.actor.SetVisibility(False)
+                continue
+
             visible = self.layer_visibility.get(record.layer, True)
             if record.layer.startswith("mission_"):
-                visible = visible and complete_visible
+                if self.developer_mode:
+                    visible = visible and complete_visible
             if record.region_id is not None:
                 if self.only_selected_region and self.region_id is not None:
                     visible = visible and record.region_id == self.region_id
@@ -129,39 +144,167 @@ class ViewerWidget(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.interactor = QtInteractor(self)
         layout.addWidget(self.interactor)
+        self.developer_mode = False
         self.controller = LayerController()
+        self.controller.developer_mode = self.developer_mode
         self._cad_bounds = None
         self._hole_actors = {}
         self.interactor.add_axes()
         self.interactor.show_grid()
 
+        # Persistent actor references
+        self._cad_actors = []
+        self._coverage_actors = []
+        self._scan_path_actors = []
+        self._free_travel_actors = []
+        self._recovery_path_actors = []
+        self._safety_envelope_actors = []
+        self._detected_holes_actors = []
+        self._connector_actors = []
+        self._frame_actors = []
+        self._laser_actors = []
+        self._label_actors = []
+        self._rejected_line_actors = []
+        self._min_clearance_actors = []
+
     def clear(self) -> None:
         self.interactor.clear()
         self.controller = LayerController()
+        self.controller.developer_mode = self.developer_mode
         self._cad_bounds = None
         self._hole_actors = {}
+        self._cad_actors = []
+        self._coverage_actors = []
+        self._scan_path_actors = []
+        self._free_travel_actors = []
+        self._recovery_path_actors = []
+        self._safety_envelope_actors = []
+        self._detected_holes_actors = []
+        self._connector_actors = []
+        self._frame_actors = []
+        self._laser_actors = []
+        self._label_actors = []
+        self._rejected_line_actors = []
+        self._min_clearance_actors = []
+
+    def _remove_actors(self, actor_list) -> None:
+        for actor in actor_list:
+            try:
+                self.interactor.remove_actor(actor)
+            except Exception:
+                pass
+        # Remove from controller records
+        set_to_remove = set(actor_list)
+        self.controller.records = [r for r in self.controller.records if r.actor not in set_to_remove]
+        actor_list.clear()
 
     def show_model(self, model) -> None:
         self.clear()
         poly = _mesh_polydata(model)
         actor = self.interactor.add_mesh(poly, color="lightgray", opacity=0.8)
         self.controller.add(ActorRecord(actor, "cad"))
+        self._cad_actors.append(actor)
         self._cad_bounds = _pyvista_bounds(model.validation_mesh.mesh)
         self.fit_cad()
 
     def show_result(self, result, config: PipelineConfig) -> None:
+        # 9. Ensure show_result() rejects incomplete/validation-only results before clearing existing actors.
+        if result is None or (not result.poses and not result.sweeps and not result.planar_plans and not result.cylindrical_plans and not result.conical_plans and not result.spherical_plans):
+            print("[Viewer] show_result rejected incomplete/validation-only result")
+            return
+
         self.clear()
         model = result.model
         poly = _mesh_polydata(model, result.coverage)
         self._cad_bounds = _pyvista_bounds(model.validation_mesh.mesh)
-        self.controller.add(ActorRecord(
-            self.interactor.add_mesh(poly, color="lightgray", opacity=0.35), "cad"
-        ))
+        
+        # 1. CAD
+        cad_actor = self.interactor.add_mesh(poly, color="lightgray", opacity=0.35)
+        self.controller.add(ActorRecord(cad_actor, "cad"))
+        self._cad_actors.append(cad_actor)
+
+        # 2. Coverage
         if result.coverage is not None:
-            self.controller.add(ActorRecord(
-                self.interactor.add_mesh(poly, scalars="coverage_rgb", rgb=True, opacity=0.78),
-                "coverage",
-            ))
+            cov_actor = self.interactor.add_mesh(poly, scalars="coverage_rgb", rgb=True, opacity=0.78)
+            self.controller.add(ActorRecord(cov_actor, "coverage"))
+            self._coverage_actors.append(cov_actor)
+
+        # 3 & 4. Free travel & Scan from continuous mission (from result.poses)
+        is_continuous = len(result.poses) > 0 and all(p.global_pose_id >= 0 for p in result.poses)
+        if is_continuous:
+            scan_segments = []
+            free_travel_segments = []
+            
+            current_segment = []
+            current_is_scan = None
+            
+            for pose in result.poses:
+                is_scan = (pose.scan_status == -1)
+                if current_is_scan is None:
+                    current_is_scan = is_scan
+                    current_segment = [pose]
+                elif is_scan == current_is_scan:
+                    current_segment.append(pose)
+                else:
+                    if current_is_scan:
+                        scan_segments.append([p.position for p in current_segment])
+                        current_segment = [current_segment[-1], pose]
+                    else:
+                        current_segment.append(pose)
+                        free_travel_segments.append([p.position for p in current_segment])
+                        current_segment = [pose]
+                    current_is_scan = is_scan
+            
+            if current_segment:
+                if current_is_scan:
+                    scan_segments.append([p.position for p in current_segment])
+                else:
+                    free_travel_segments.append([p.position for p in current_segment])
+
+            # 3. Free travel
+            for seg in free_travel_segments:
+                if len(seg) >= 2:
+                    actor = self.interactor.add_mesh(
+                        pv.lines_from_points(np.asarray(seg)),
+                        color="cyan",
+                        line_width=3,
+                        opacity=0.8,
+                        render_lines_as_tubes=True,
+                    )
+                    self.controller.add(ActorRecord(actor, "mission_free_travel"))
+                    self._free_travel_actors.append(actor)
+
+            # 4. Scan
+            for seg in scan_segments:
+                if len(seg) >= 2:
+                    actor = self.interactor.add_mesh(
+                        pv.lines_from_points(np.asarray(seg)),
+                        color="darkblue",
+                        line_width=5,
+                        opacity=1.0,
+                        render_lines_as_tubes=True,
+                    )
+                    self.controller.add(ActorRecord(actor, "mission_scan"))
+                    self._scan_path_actors.append(actor)
+
+            # 5. Start/end markers
+            start_pos = np.asarray(result.poses[0].position)
+            end_pos = np.asarray(result.poses[-1].position)
+            
+            start_sphere = pv.Sphere(radius=4.0, center=start_pos)
+            end_sphere = pv.Sphere(radius=4.0, center=end_pos)
+            
+            actor_start = self.interactor.add_mesh(start_sphere, color="green", opacity=1.0)
+            actor_end = self.interactor.add_mesh(end_sphere, color="red", opacity=1.0)
+            
+            self.controller.add(ActorRecord(actor_start, "mission_start_end"))
+            self.controller.add(ActorRecord(actor_end, "mission_start_end"))
+            self._free_travel_actors.append(actor_start)
+            self._free_travel_actors.append(actor_end)
+
+        # 6. Developer Overlays
+
+        # Detected Holes
         for feature in result.hole_features:
             marker = pv.Sphere(
                 radius=max(feature.radius_mm * 1.05, 0.5),
@@ -174,6 +317,9 @@ class ViewerWidget(QtWidgets.QWidget):
             )
             self._hole_actors[feature.feature_id] = actor
             self.controller.add(ActorRecord(actor, "features"))
+            self._detected_holes_actors.append(actor)
+
+        # Sweeps
         for sweep in result.sweeps:
             scan = sweep.scan_poses
             if not scan:
@@ -184,7 +330,7 @@ class ViewerWidget(QtWidgets.QWidget):
             scanner = np.asarray([pose.position for pose in scan])
             transition = np.asarray([pose.position for pose in sweep.poses])
             path_layer = "recovery" if sweep.view_type in {
-                "hole_recovery", "lower_isometric", "bottom"
+                "focused_conical_orbit", "hole_recovery", "lower_isometric", "bottom"
             } else "scanner"
             for layer, points, width in (
                 ("nominal", nominal, 4), ("scanner", scanner, 2),
@@ -198,6 +344,15 @@ class ViewerWidget(QtWidgets.QWidget):
                         line_width=width,
                     )
                     self.controller.add(ActorRecord(actor, layer, **metadata))
+                    # Note: for developer planning artefacts we store them in _recovery_path_actors or similar to keep _scan_path_actors strictly for the continuous mission
+                    if layer == "nominal":
+                        self._recovery_path_actors.append(actor)
+                    elif layer in ("scanner", "recovery"):
+                        self._recovery_path_actors.append(actor)
+                    elif layer == "transition":
+                        self._recovery_path_actors.append(actor)
+
+        # Focused conical orbits
         feature_by_id = {feature.feature_id: feature for feature in result.hole_features}
         palette = ("turquoise", "coral", "violet", "gold", "lime", "deepskyblue")
         focused = [candidate for candidate in result.recovery_candidates
@@ -212,9 +367,9 @@ class ViewerWidget(QtWidgets.QWidget):
             actor = self.interactor.add_mesh(
                 pv.lines_from_points(points), color=color, line_width=4,
             )
-            self.controller.add(ActorRecord(
-                actor, "focused", hole_id=feature.feature_id
-            ))
+            self.controller.add(ActorRecord(actor, "focused", hole_id=feature.feature_id))
+            self._recovery_path_actors.append(actor)
+
             axis = -np.asarray(feature.entry_opening_normal, dtype=float)
             axis /= np.linalg.norm(axis)
             axis_length = max(feature.depth_mm, 2.0 * feature.radius_mm)
@@ -222,9 +377,9 @@ class ViewerWidget(QtWidgets.QWidget):
                 np.asarray([feature.entry_opening_centre]),
                 np.asarray([axis * axis_length]), color=color,
             )
-            self.controller.add(ActorRecord(
-                axis_actor, "focused", hole_id=feature.feature_id
-            ))
+            self.controller.add(ActorRecord(axis_actor, "focused", hole_id=feature.feature_id))
+            self._recovery_path_actors.append(axis_actor)
+
             reference = np.array([1.0, 0.0, 0.0])
             if abs(float(np.dot(reference, axis))) > 0.9:
                 reference = np.array([0.0, 1.0, 0.0])
@@ -240,26 +395,27 @@ class ViewerWidget(QtWidgets.QWidget):
             circle_actor = self.interactor.add_mesh(
                 pv.lines_from_points(circle), color=color, line_width=2,
             )
-            self.controller.add(ActorRecord(
-                circle_actor, "focused", hole_id=feature.feature_id
-            ))
+            self.controller.add(ActorRecord(circle_actor, "focused", hole_id=feature.feature_id))
+            self._recovery_path_actors.append(circle_actor)
+
             focus = np.asarray(scan[0].focus_point)
             focus_actor = self.interactor.add_mesh(
                 pv.Sphere(radius=max(feature.radius_mm * 0.12, 0.25), center=focus),
                 color=color,
             )
-            self.controller.add(ActorRecord(
-                focus_actor, "focused", hole_id=feature.feature_id
-            ))
+            self.controller.add(ActorRecord(focus_actor, "focused", hole_id=feature.feature_id))
+            self._recovery_path_actors.append(focus_actor)
+
             connectors = [(pose.position, focus)
                           for pose in scan[::max(1, config.laser_footprint_stride)]]
             if connectors:
                 connector_actor = self.interactor.add_mesh(
                     _line_polydata(connectors), color=color, line_width=1,
                 )
-                self.controller.add(ActorRecord(
-                    connector_actor, "focused", hole_id=feature.feature_id
-                ))
+                self.controller.add(ActorRecord(connector_actor, "focused", hole_id=feature.feature_id))
+                self._recovery_path_actors.append(connector_actor)
+
+        # Plan motion segments
         plans = (*result.planar_plans, *result.cylindrical_plans,
                  *result.conical_plans, *result.spherical_plans)
         for plan in plans:
@@ -288,89 +444,9 @@ class ViewerWidget(QtWidgets.QWidget):
                             pv.lines_from_points(points), color=color, line_width=width
                         )
                         self.controller.add(ActorRecord(actor, layer, **metadata))
+                        self._recovery_path_actors.append(actor)
 
-        scan_poses = [pose for pose in result.poses if pose.scan_enabled]
-        metrics = {(m.segment_id, m.pose_id): m for m in
-                   (result.geometry_validation.pose_metrics if result.geometry_validation else ())}
-        colors = {"green": [30, 190, 60], "yellow": [245, 200, 35], "red": [220, 35, 35]}
-        connector_lines = [(p.surface_point, p.position) for p in scan_poses[::config.connector_stride]]
-        if connector_lines:
-            connector_poly = _line_polydata(connector_lines)
-            connector_poly.cell_data["rgb"] = np.asarray([
-                colors[metrics[(p.segment_id, p.pose_id)].connector_status.value]
-                if (p.segment_id, p.pose_id) in metrics else colors["green"]
-                for p in scan_poses[::config.connector_stride]
-            ], dtype=np.uint8)
-            self.controller.add(ActorRecord(self.interactor.add_mesh(
-                connector_poly, scalars="rgb", rgb=True, line_width=1), "connectors"))
-
-        selected = scan_poses[::config.frame_stride]
-        if selected:
-            origins = np.asarray([p.position for p in selected])
-            rotations = [Rotation.from_quat(p.quaternion_xyzw) for p in selected]
-            length = max(float(np.max(model.validation_mesh.mesh.extents)) * 0.015, 1.0)
-            for axis, color in (([1, 0, 0], "red"), ([0, 1, 0], "green"), ([0, 0, 1], "blue")):
-                vectors = np.asarray([rotation.apply(axis) for rotation in rotations])
-                self.controller.add(ActorRecord(
-                    self.interactor.add_arrows(origins, vectors * length, color=color), "frames"))
-        if config.planning_quality != "fast_preview":
-            footprints = []
-            for pose in scan_poses[::config.laser_footprint_stride]:
-                axis = Rotation.from_quat(pose.quaternion_xyzw).apply([1, 0, 0])
-                half = 0.5 * config.laser_width_mm * axis
-                footprints.append((pose.surface_point - half, pose.surface_point + half))
-            if footprints:
-                self.controller.add(ActorRecord(self.interactor.add_mesh(
-                    _line_polydata(footprints), color="cyan", line_width=1), "laser"))
-            points = np.asarray([[f.center.x, f.center.y, f.center.z] for f in model.faces])
-            label_actor = self.interactor.add_point_labels(
-                points, [str(f.face_id) for f in model.faces], font_size=8,
-                point_size=2, shape_opacity=0.25, always_visible=False)
-            self.controller.add(ActorRecord(label_actor, "labels"))
-        is_continuous = len(result.poses) > 0 and all(p.global_pose_id >= 0 for p in result.poses)
         if is_continuous:
-            scan_segments = []
-            free_travel_segments = []
-            
-            current_scan = []
-            current_free = []
-            
-            for pose in result.poses:
-                if pose.scan_status == -1:
-                    if current_free:
-                        free_travel_segments.append(current_free)
-                        current_free = []
-                    current_scan.append(pose.position)
-                else:
-                    if current_scan:
-                        scan_segments.append(current_scan)
-                        current_scan = []
-                    current_free.append(pose.position)
-            if current_scan:
-                scan_segments.append(current_scan)
-            if current_free:
-                free_travel_segments.append(current_free)
-                
-            for seg in scan_segments:
-                if len(seg) >= 2:
-                    actor = self.interactor.add_mesh(
-                        pv.lines_from_points(np.asarray(seg)),
-                        color="blue",
-                        line_width=5,
-                        opacity=1.0,
-                    )
-                    self.controller.add(ActorRecord(actor, "mission_scan"))
-                    
-            for seg in free_travel_segments:
-                if len(seg) >= 2:
-                    actor = self.interactor.add_mesh(
-                        pv.lines_from_points(np.asarray(seg)),
-                        color="lightgray",
-                        line_width=1,
-                        opacity=0.35,
-                    )
-                    self.controller.add(ActorRecord(actor, "mission_free_travel"))
-
             for polyline in result.summary.output_files.get("original_safe_polylines", []):
                 points = np.asarray(polyline)
                 if len(points) >= 2:
@@ -381,6 +457,7 @@ class ViewerWidget(QtWidgets.QWidget):
                         opacity=0.45,
                     )
                     self.controller.add(ActorRecord(actor, "mission_original_safe_polyline"))
+                    self._recovery_path_actors.append(actor)
 
             for candidate in result.summary.output_files.get("rejected_smoothing_candidates", []):
                 points = np.asarray(candidate)
@@ -392,6 +469,7 @@ class ViewerWidget(QtWidgets.QWidget):
                         opacity=0.35,
                     )
                     self.controller.add(ActorRecord(actor, "mission_rejected_smoothing"))
+                    self._recovery_path_actors.append(actor)
 
             control_points = result.summary.output_files.get("smoothing_control_points", [])
             if control_points:
@@ -403,19 +481,8 @@ class ViewerWidget(QtWidgets.QWidget):
                     opacity=0.7,
                 )
                 self.controller.add(ActorRecord(actor, "mission_smoothing_control_points"))
+                self._recovery_path_actors.append(actor)
                     
-            start_pos = np.asarray(result.poses[0].position)
-            end_pos = np.asarray(result.poses[-1].position)
-            
-            start_sphere = pv.Sphere(radius=4.0, center=start_pos)
-            end_sphere = pv.Sphere(radius=4.0, center=end_pos)
-            
-            actor_start = self.interactor.add_mesh(start_sphere, color="green", opacity=1.0)
-            actor_end = self.interactor.add_mesh(end_sphere, color="red", opacity=1.0)
-            
-            self.controller.add(ActorRecord(actor_start, "mission_start_end"))
-            self.controller.add(ActorRecord(actor_end, "mission_start_end"))
-            
             transition_pts = [p.position for p in result.poses if p.scan_status == 0]
             if transition_pts:
                 waypoints_poly = pv.PolyData(np.asarray(transition_pts))
@@ -427,8 +494,80 @@ class ViewerWidget(QtWidgets.QWidget):
                     opacity=0.8,
                 )
                 self.controller.add(ActorRecord(actor_wps, "mission_transition_waypoints"))
+                self._recovery_path_actors.append(actor_wps)
 
-            # Safety Envelope Box rendering
+        # Call update_validation to render all validation-specific actors
+        self.update_validation(result, config)
+
+        self.controller.refresh()
+        self.fit_trajectory()
+
+    def update_validation(self, result, config: PipelineConfig) -> None:
+        self._remove_actors(self._connector_actors)
+        self._remove_actors(self._frame_actors)
+        self._remove_actors(self._laser_actors)
+        self._remove_actors(self._label_actors)
+        self._remove_actors(self._rejected_line_actors)
+        self._remove_actors(self._min_clearance_actors)
+        self._remove_actors(self._safety_envelope_actors)
+
+        model = result.model
+        scan_poses = [pose for pose in result.poses if pose.scan_enabled]
+        
+        # 2. Render Connector lines
+        metrics = {(m.segment_id, m.pose_id): m for m in
+                   (result.geometry_validation.pose_metrics if result.geometry_validation else ())}
+        colors = {"green": [30, 190, 60], "yellow": [245, 200, 35], "red": [220, 35, 35]}
+        connector_lines = [(p.surface_point, p.position) for p in scan_poses[::config.connector_stride]]
+        if connector_lines:
+            connector_poly = _line_polydata(connector_lines)
+            connector_poly.cell_data["rgb"] = np.asarray([
+                colors[metrics[(p.segment_id, p.pose_id)].connector_status.value]
+                if (p.segment_id, p.pose_id) in metrics else colors["green"]
+                for p in scan_poses[::config.connector_stride]
+            ], dtype=np.uint8)
+            actor = self.interactor.add_mesh(
+                connector_poly, scalars="rgb", rgb=True, line_width=1
+            )
+            self.controller.add(ActorRecord(actor, "connectors"))
+            self._connector_actors.append(actor)
+
+        # 3. Render Frames
+        selected = scan_poses[::config.frame_stride]
+        if selected:
+            origins = np.asarray([p.position for p in selected])
+            rotations = [Rotation.from_quat(p.quaternion_xyzw) for p in selected]
+            length = max(float(np.max(model.validation_mesh.mesh.extents)) * 0.015, 1.0)
+            for axis, color in (([1, 0, 0], "red"), ([0, 1, 0], "green"), ([0, 0, 1], "blue")):
+                vectors = np.asarray([rotation.apply(axis) for rotation in rotations])
+                actor = self.interactor.add_arrows(origins, vectors * length, color=color)
+                self.controller.add(ActorRecord(actor, "frames"))
+                self._frame_actors.append(actor)
+                
+        # 4. Render Laser footprints and Face labels
+        if config.planning_quality != "fast_preview":
+            footprints = []
+            for pose in scan_poses[::config.laser_footprint_stride]:
+                axis = Rotation.from_quat(pose.quaternion_xyzw).apply([1, 0, 0])
+                half = 0.5 * config.laser_width_mm * axis
+                footprints.append((pose.surface_point - half, pose.surface_point + half))
+            if footprints:
+                actor = self.interactor.add_mesh(
+                    _line_polydata(footprints), color="cyan", line_width=1
+                )
+                self.controller.add(ActorRecord(actor, "laser"))
+                self._laser_actors.append(actor)
+                
+            points = np.asarray([[f.center.x, f.center.y, f.center.z] for f in model.faces])
+            label_actor = self.interactor.add_point_labels(
+                points, [str(f.face_id) for f in model.faces], font_size=8,
+                point_size=2, shape_opacity=0.25, always_visible=False)
+            self.controller.add(ActorRecord(label_actor, "labels"))
+            self._label_actors.append(label_actor)
+
+        is_continuous = len(result.poses) > 0 and all(p.global_pose_id >= 0 for p in result.poses)
+        if is_continuous:
+            # 5. Render Safety Envelope Box
             if result.summary.output_files and "safety_box" in result.summary.output_files:
                 safety_box = result.summary.output_files["safety_box"]
                 box_vertices = safety_box.vertices
@@ -439,15 +578,16 @@ class ViewerWidget(QtWidgets.QWidget):
                 box_actor = self.interactor.add_mesh(
                     box_poly,
                     color="cyan",
-                    opacity=0.08,
+                    opacity=0.03, # Reduced opacity to 0.03 to avoid visual occlusion
                     style="surface",
                     show_edges=True,
                     edge_color="cyan",
                     line_width=1.5
                 )
                 self.controller.add(ActorRecord(box_actor, "safety_envelope"))
+                self._safety_envelope_actors.append(box_actor)
 
-            # Rejected direct lines rendering
+            # 6. Render Rejected direct lines
             if result.summary.output_files and "rejected_direct_lines" in result.summary.output_files:
                 rejected_lines = result.summary.output_files["rejected_direct_lines"]
                 if rejected_lines:
@@ -459,11 +599,12 @@ class ViewerWidget(QtWidgets.QWidget):
                         opacity=0.8
                     )
                     self.controller.add(ActorRecord(rej_actor, "rejected_direct_transitions"))
+                    self._rejected_line_actors.append(rej_actor)
 
-            # Minimum clearance markers rendering
+            # 7. Render Minimum clearance markers
             free_poses = [p for p in result.poses if p.scan_status == 0]
             if free_poses:
-                min_pose = min(free_poses, key=lambda p: p.clearance_mm)
+                min_pose = min(free_poses, key=lambda p: getattr(p, "clearance_mm", 999.0))
                 p_pos = np.asarray(min_pose.position)
                 closest_pts, _, _ = proximity.closest_point(model.validation_mesh.mesh, np.array([p_pos]))
                 c_pt = closest_pts[0]
@@ -476,6 +617,7 @@ class ViewerWidget(QtWidgets.QWidget):
                     opacity=1.0
                 )
                 self.controller.add(ActorRecord(line_actor, "min_clearance_markers"))
+                self._min_clearance_actors.append(line_actor)
                 
                 sphere_actor = self.interactor.add_mesh(
                     pv.Sphere(radius=2.0, center=c_pt),
@@ -483,18 +625,18 @@ class ViewerWidget(QtWidgets.QWidget):
                     opacity=1.0
                 )
                 self.controller.add(ActorRecord(sphere_actor, "min_clearance_markers"))
+                self._min_clearance_actors.append(sphere_actor)
                 
+                clearance_val = getattr(min_pose, "clearance_mm", 0.0)
                 label_actor = self.interactor.add_point_labels(
                     np.array([0.5 * (p_pos + c_pt)]),
-                    [f"Min Clearance: {min_pose.clearance_mm:.1f} mm"],
+                    [f"Min Clearance: {clearance_val:.1f} mm"],
                     font_size=10,
                     text_color="magenta",
                     always_visible=True
                 )
                 self.controller.add(ActorRecord(label_actor, "min_clearance_markers"))
-
-        self.controller.refresh()
-        self.fit_cad()
+                self._min_clearance_actors.append(label_actor)
 
     def set_layer_visibility(self, layer: str, visible: bool) -> None:
         self.controller.set_layer(layer, visible)
@@ -526,5 +668,11 @@ class ViewerWidget(QtWidgets.QWidget):
                 (1.0, 0.1, 0.1) if hole_id == feature_id else (1.0, 1.0, 0.0)
             )
             actor.GetProperty().SetLineWidth(5 if hole_id == feature_id else 2)
+        self.controller.refresh()
+        self.interactor.render()
+
+    def set_developer_mode(self, enabled: bool) -> None:
+        self.developer_mode = enabled
+        self.controller.developer_mode = enabled
         self.controller.refresh()
         self.interactor.render()

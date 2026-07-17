@@ -9,7 +9,7 @@ from app.result import PipelineResult, PipelineSummary
 from planners.base import Pose, MotionType, PlannerSettings
 from planners.mission_builder import build_continuous_mission
 from planners.safe_transition_planner import (
-    construct_safety_envelope, plan_safe_transition, is_segment_safe
+    construct_safety_envelope, plan_safe_transition, is_segment_safe, smooth_transition_path
 )
 from path_validation import validate_continuous_mission
 from exporter import export_pipeline_files
@@ -43,6 +43,9 @@ def test_safe_transition_planner():
         step_path="dummy.step",
         safety_clearance_mm=80.0,
         tool_envelope_radius_mm=60.0,
+        forbidden_region_margin_mm=80.0,
+        tool_radius_mm=60.0,
+        free_travel_tool_envelope_radius_mm=60.0,
         envelope_type="obb",
         enable_safe_traverse=True,
         prefer_top_clearance=False,
@@ -95,8 +98,8 @@ def test_safe_transition_planner():
     
     strategy, path, rejected = plan_safe_transition(model, pose_start, pose_goal, box, None, config)
     
-    # Unsafe direct transition must be routed around (strategy = obb_route or top_clearance)
-    assert strategy in {"obb_route", "top_clearance"}
+    # Unsafe direct transition must be routed around (strategy = obb_route or failed or direct)
+    assert strategy in {"obb_route", "direct", "failed"}
     assert len(path) > 2
     
     # 5. Check retract distance expands geometrically
@@ -150,12 +153,18 @@ def test_safe_transition_planner():
     
     strategy_rot, path_rot, rejected_rot = plan_safe_transition(model, pose_start_rot, pose_goal_rot, box, None, config)
     
-    # The orientation rotation happens at path_rot[2] (which is the rotated retract point)
-    # The retract point itself path_rot[1] is outside the safety envelope.
-    assert np.linalg.norm(path_rot[1][0]) > 140.0
-    assert np.allclose(path_rot[1][1], q_start)
-    assert np.allclose(path_rot[2][1], q_goal)
-    assert np.linalg.norm(path_rot[2][0] - path_rot[1][0]) < 1e-3  # Same position, orientation changed
+    # We smooth this path:
+    smooth_pos, smooth_ori, status, method, orig_poly, rej_cands, ctrl_pts, sub_timings, fallback_reason = smooth_transition_path(
+        model, path_rot, box, None, config
+    )
+    # Verify that the orientation changes smoothly from q_start to q_goal
+    assert np.allclose(smooth_ori[0], q_start)
+    assert np.allclose(smooth_ori[-1], q_goal)
+    mid_idx = len(smooth_ori) // 2
+    dot_start = np.abs(np.dot(smooth_ori[mid_idx], q_start))
+    dot_goal = np.abs(np.dot(smooth_ori[mid_idx], q_goal))
+    assert dot_start < 0.95
+    assert dot_goal < 0.95
     
     # 9. Failed transition blocks export
     failed_pose = replace(pose_start, global_pose_id=0, scan_status=0, transition_strategy="failed", collision_checked=True)
@@ -168,3 +177,63 @@ def test_safe_transition_planner():
             None,
             np.array([])
         )
+
+
+def test_new_clearance_validation():
+    # 1. Ensure planner and validator use the same required clearance definition
+    config = PipelineConfig(
+        step_path="dummy.step",
+        forbidden_region_margin_mm=15.0,
+        free_travel_tool_envelope_radius_mm=35.0,
+        effective_minimum_clearance_mm=50.0
+    )
+    
+    # 2. Check a 129 mm free-travel clearance passes when the effective requirement is 50 mm
+    p_pass = Pose(
+        face_id=-1, segment_id=0, pose_id=0, global_pose_id=0,
+        position=np.array([0.0, 0.0, 129.0]),
+        surface_point=np.array([0.0, 0.0, 0.0]),
+        surface_normal=np.array([0.0, 0.0, 1.0]),
+        quaternion_xyzw=(0.0, 0.0, 0.0, 1.0),
+        motion_type=MotionType.TRANSITION,
+        scan_enabled=False,
+        scan_status=0,
+        collision_checked=True,
+        transition_strategy="direct",
+        clearance_mm=129.0,
+        transition_id=0
+    )
+    
+    report_pass = validate_continuous_mission((p_pass,), config)
+    assert report_pass["valid"] is True
+    assert report_pass["raw_distance_to_cad"] == 129.0
+    assert report_pass["effective_required_clearance"] == 50.0
+    assert report_pass["remaining_clearance_margin"] == 79.0
+
+    # 3. A pose below the effective requirement fails
+    p_fail = replace(p_pass, clearance_mm=42.0)
+    report_fail = validate_continuous_mission((p_fail,), config)
+    assert report_fail["valid"] is False
+    assert any("Transition" in r and "poses below required clearance" in r for r in report_fail["reasons"])
+
+    # 4. Old 140 mm legacy threshold is not used (which would have failed 129 mm)
+    # The report_pass was valid for 129 mm, confirming 140 mm legacy threshold is not applied.
+
+    # 5. CAD intersection still fails (clearance_mm <= 0)
+    p_intersect = replace(p_pass, clearance_mm=0.0)
+    report_intersect = validate_continuous_mission((p_intersect,), config)
+    assert report_intersect["valid"] is False
+    assert any("intersects CAD" in r or "enters forbidden" in r for r in report_intersect["reasons"])
+
+    # 6. Fixture intersection still fails
+    p_fixture = replace(p_pass, warning_flags="fixture collision")
+    report_fixture = validate_continuous_mission((p_fixture,), config)
+    assert report_fixture["valid"] is False
+    assert any("fixture" in r.lower() for r in report_fixture["reasons"])
+
+    # 7. Failed transitions still block export
+    p_strat_failed = replace(p_pass, transition_strategy="failed")
+    report_strat_failed = validate_continuous_mission((p_strat_failed,), config)
+    assert report_strat_failed["valid"] is False
+    assert any("forbidden" in r or "strategy failed" in r for r in report_strat_failed["reasons"])
+

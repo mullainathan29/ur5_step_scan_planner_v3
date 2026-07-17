@@ -141,6 +141,8 @@ def build_continuous_mission(result: PipelineResult, config: PipelineConfig) -> 
     max_free_travel_curvature = 0.0
     min_transition_clearance = float("inf")
 
+    transition_diagnostics = []
+
     def _append_free_transition(
         pose_from: Pose,
         pose_to: Pose,
@@ -173,7 +175,8 @@ def build_continuous_mission(result: PipelineResult, config: PipelineConfig) -> 
             orig_poly,
             rej_cands,
             ctrl_pts,
-            sub_timings
+            sub_timings,
+            fallback_reason
         ) = smooth_transition_path(result.model, path, safety_box, fixture_mesh, config)
         t_fit += sub_timings["fitting"]
         t_val += sub_timings["validation"]
@@ -194,6 +197,23 @@ def build_continuous_mission(result: PipelineResult, config: PipelineConfig) -> 
         curvatures = compute_curvatures(smooth_pos)
         if len(curvatures) > 0:
             max_free_travel_curvature = max(max_free_travel_curvature, float(np.max(curvatures)))
+
+        # Collect diagnostics
+        _, dists, _ = trimesh.proximity.closest_point(result.model.validation_mesh.mesh, smooth_pos)
+        min_clear = float(np.min(dists)) if len(dists) > 0 else 0.0
+        max_curv = float(np.max(curvatures)) if len(curvatures) > 0 else 0.0
+        
+        transition_diagnostics.append({
+            "transition_id": transition_id,
+            "direct_accepted_or_blocked": "accepted" if strategy == "direct" else "blocked",
+            "detour_point_count": len(orig_poly) - 2 if len(orig_poly) > 2 else 0,
+            "curve_type": method,
+            "path_length": float(d_after),
+            "min_forbidden_dist": min_clear,
+            "max_curvature": max_curv,
+            "pose_count": len(smooth_pos),
+            "fallback_reason": fallback_reason
+        })
 
         M = len(smooth_pos)
         for k in range(1, M):
@@ -341,6 +361,30 @@ def build_continuous_mission(result: PipelineResult, config: PipelineConfig) -> 
         ))
 
     t_assembly = perf_counter() - t_start - (t_poly + t_fit + t_val + t_ori + t_res)
+
+    # Print diagnostics report
+    print("\n" + "="*90)
+    print("FREE-TRAVEL TRANSITION DIAGNOSTICS REPORT")
+    print("="*90)
+    print(f"{'ID':<4} | {'Direct/Blocked':<14} | {'Detours':<8} | {'Curve Type':<11} | {'Length (mm)':<12} | {'Min Dist (mm)':<13} | {'Max Curv':<9} | {'Poses':<5} | {'Fallback Reason'}")
+    print("-"*120)
+    for td in transition_diagnostics:
+        print(f"{td['transition_id']:<4} | {td['direct_accepted_or_blocked']:<14} | {td['detour_point_count']:<8} | {td['curve_type']:<11} | {td['path_length']:7.1f}      | {td['min_forbidden_dist']:8.1f}      | {td['max_curvature']:8.4f}  | {td['pose_count']:<5} | {td['fallback_reason']}")
+    print("="*120)
+    print("SUMMARY STATISTICS:")
+    direct_smooth = sum(1 for td in transition_diagnostics if td['direct_accepted_or_blocked'] == "accepted" and td['curve_type'] != "none")
+    one_point_detours = sum(1 for td in transition_diagnostics if td['detour_point_count'] == 1 and td['curve_type'] != "none")
+    two_point_detours = sum(1 for td in transition_diagnostics if td['detour_point_count'] == 2 and td['curve_type'] != "none")
+    fallback_polylines = sum(1 for td in transition_diagnostics if td['curve_type'] == "none")
+    failed_transitions = strategy_counts.get("failed", 0)
+    print(f"- Direct smooth transitions: {direct_smooth}")
+    print(f"- One-point detours:         {one_point_detours}")
+    print(f"- Two-point detours:         {two_point_detours}")
+    print(f"- Fallback polylines:        {fallback_polylines}")
+    print(f"- Failed transitions:        {failed_transitions}")
+    print(f"- Total free-travel distance: {total_free_travel_dist_after:.1f} mm")
+    print(f"- Total runtime:             {perf_counter() - t_start:.3f} s")
+    print("="*90 + "\n")
 
     # Cache outputs for viewer
     result.summary.output_files.update({

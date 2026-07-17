@@ -143,3 +143,19 @@ orientation_smoothing:
   # Fraction of each free-travel route used for gradual interpolation.
   interpolation_window_fraction: 0.8
 
+free_travel:
+  # Enables collision-free routing and smoothing for free travel.
+  enabled: true
+  # Margin added around the CAD part to form the forbidden region.
+  forbidden_region_margin_mm: 15.0
+  # Effective radius representing the scanner/tool envelope.
+  tool_envelope_radius_mm: 35.0
+  # Effective minimum clearance threshold for mission validation.
+  effective_minimum_clearance_mm: 50.0
+  # Distance between segment samples for collision/clearance validation of free travel.
+  collision_sample_spacing_mm: 5.0
+  # Maximum allowed curvature for robot-friendly free travel.
+  maximum_curvature_1_per_mm: 0.025
+  # Maximum allowed control points for transition curves.
+  maximum_control_points: 4
+

@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 from time import perf_counter
 
+from dataclasses import replace
 import numpy as np
 from PySide6 import QtCore, QtWidgets
 
@@ -40,6 +41,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.step_path: Path | None = None
         self.model = None
         self.result = None
+        self.current_result = None
         self.config = None
         self.planning_dirty = False
         self._thread = None
@@ -68,6 +70,12 @@ class MainWindow(QtWidgets.QMainWindow):
         developer_menu.addAction("Build continuous mission", self.build_continuous_mission)
         developer_menu.addSeparator()
         developer_menu.addAction("Show developer log", self.log_view.parentWidget().show)
+        
+        self.dev_mode_action = developer_menu.addAction("Developer Mode")
+        self.dev_mode_action.setCheckable(True)
+        self.dev_mode_action.setChecked(False)
+        self.dev_mode_action.triggered.connect(self.set_developer_mode)
+        
         export_menu = menu.addMenu("Export")
         export_menu.addAction("Export CSV", self.export_csv)
         export_menu.addAction("Export JSON", self.export_json)
@@ -112,6 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._log_timings(payload.timings)
         self.model = model
         self.result = None
+        self.current_result = None
         self.controls.set_export_enabled(False)
         counts = Counter(record.geometry_type.value for record in model.faces)
         stats = ", ".join(f"{name}: {count}" for name, count in sorted(counts.items()))
@@ -142,7 +151,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.controls.stats_validation.setText("Validation status: not run")
         self._start_worker(
             GenerateMissionWorker(config, self.geometry_cache),
-            self._result_updated,
+            self._planning_result_ready,
         )
 
     @QtCore.Slot()
@@ -163,6 +172,7 @@ class MainWindow(QtWidgets.QMainWindow):
         result = payload.value
         self._log_timings(payload.timings)
         self.result = result
+        self.current_result = result
         self.controls.set_export_enabled(False)
         self.planning_dirty = False
         regions = sorted({pose.region_id for pose in result.poses if pose.scan_enabled})
@@ -194,7 +204,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.config = self.controls.planning_config(self.step_path)
         self._start_worker(CoverageWorker(
             self.result, self.config, self.geometry_cache
-        ), self._result_updated)
+        ), self._planning_result_ready)
 
     @QtCore.Slot()
     def generate_feature_recovery(self) -> None:
@@ -233,7 +243,7 @@ class MainWindow(QtWidgets.QMainWindow):
             elif clicked is not continue_button:
                 return
         self._start_worker(
-            FeatureRecoveryWorker(self.result, self.config), self._result_updated
+            FeatureRecoveryWorker(self.result, self.config), self._planning_result_ready
         )
 
     @QtCore.Slot()
@@ -243,7 +253,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.config = self.controls.planning_config(self.step_path)
         self._start_worker(
-            OptimisationWorker(self.result, self.config), self._result_updated
+            OptimisationWorker(self.result, self.config), self._planning_result_ready
         )
 
     @QtCore.Slot()
@@ -254,7 +264,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.config = self.controls.planning_config(self.step_path)
         from gui.workers import BuildMissionWorker
         self._start_worker(
-            BuildMissionWorker(self.result, self.config), self._result_updated
+            BuildMissionWorker(self.result, self.config), self._planning_result_ready
         )
 
     @QtCore.Slot()
@@ -264,13 +274,15 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._start_worker(ValidationWorker(
             self.result, self.config, self.geometry_cache
-        ), self._result_updated)
+        ), self._validation_updated)
 
-    def _result_updated(self, payload: WorkerResult) -> None:
+    def _planning_result_ready(self, payload: WorkerResult) -> None:
         result = payload.value
         self._log_timings(payload.timings)
         self.result = result
+        self.current_result = result
         started = perf_counter()
+        print(f"[MainWindow] show_result called for complete result. Poses: {len(result.poses)}")
         self.viewer.show_result(result, self.config)
         timings = StageTimings(); timings.record("viewer update", perf_counter() - started)
         self._log_timings(timings)
@@ -284,7 +296,51 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         self._sync_layer_controls()
         self.apply_selection()
+        self._update_mission_stats_and_report(result)
+        self._update_export_state()
 
+    def _validation_updated(self, payload: WorkerResult) -> None:
+        validation_result = payload.value
+        self._log_timings(payload.timings)
+
+        # Merge validation fields into self.current_result instead of replacing the entire object
+        if self.current_result is not None:
+            # Reconstruct the summary with merged output_files
+            new_output_files = dict(self.current_result.summary.output_files or {})
+            if validation_result.summary.output_files:
+                new_output_files.update(validation_result.summary.output_files)
+                
+            new_summary = replace(
+                self.current_result.summary,
+                output_files=new_output_files,
+                coverage_percent=validation_result.summary.coverage_percent
+            )
+            
+            # Reconstruct PipelineResult
+            self.current_result = replace(
+                self.current_result,
+                geometry_validation=validation_result.geometry_validation,
+                summary=new_summary
+            )
+            # Sync self.result
+            self.result = self.current_result
+
+            # Update validation-specific layers non-destructively
+            print(f"[MainWindow] update_validation called for validation-only update.")
+            self.viewer.update_validation(self.current_result, self.config)
+            self._update_mission_stats_and_report(self.current_result)
+        else:
+            # Fallback if self.current_result is None
+            self.result = validation_result
+            self.current_result = validation_result
+            self.viewer.show_result(validation_result, self.config)
+            self._update_mission_stats_and_report(validation_result)
+
+        self._sync_layer_controls()
+        self.apply_selection()
+        self._update_export_state()
+
+    def _update_mission_stats_and_report(self, result) -> None:
         is_continuous = len(result.poses) > 0 and all(p.global_pose_id >= 0 for p in result.poses)
         if is_continuous:
             scan_dist = 0.0
@@ -392,7 +448,7 @@ class MainWindow(QtWidgets.QMainWindow):
         thread = QtCore.QThread(self)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
-        worker.progress.connect(self._worker_progress)
+        worker.progress.connect(self._progress_updated)
         worker.completed.connect(completion)
         worker.failed.connect(self._worker_failed)
         worker.cancelled.connect(lambda: self.statusBar().showMessage("Task cancelled", 5000))
@@ -406,7 +462,7 @@ class MainWindow(QtWidgets.QMainWindow):
         thread.start()
 
     @QtCore.Slot(int, str)
-    def _worker_progress(self, value: int, message: str) -> None:
+    def _progress_updated(self, value: int, message: str) -> None:
         self.progress_bar.setValue(value)
         self.statusBar().showMessage(message)
 
@@ -535,3 +591,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self._worker.cancel()
         self.viewer.interactor.close()
         super().closeEvent(event)
+
+    def set_developer_mode(self, enabled: bool) -> None:
+        self.viewer.set_developer_mode(enabled)
+        self.controls.set_developer_mode(enabled)
+        if hasattr(self, "dev_mode_action"):
+            self.dev_mode_action.setChecked(enabled)

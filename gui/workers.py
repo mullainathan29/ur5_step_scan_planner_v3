@@ -236,12 +236,7 @@ class ValidationWorker(TaskWorker):
             self.progress.emit(70, "Mission path validation")
             started_mv = perf_counter()
             from path_validation import validate_continuous_mission
-            from planners.base import PlannerSettings
-            settings = PlannerSettings(
-                safety_clearance_mm=self.config.safety_clearance_mm,
-                tool_envelope_radius_mm=self.config.tool_envelope_radius_mm
-            )
-            mission_report = validate_continuous_mission(result.poses, settings)
+            mission_report = validate_continuous_mission(result.poses, self.config)
             timings.record("mission validation", perf_counter() - started_mv)
             if not result.summary.output_files:
                 result.summary.output_files = {}
@@ -268,12 +263,7 @@ class BuildMissionWorker(TaskWorker):
         
         # Run validation so stats are immediately available
         from path_validation import validate_continuous_mission
-        from planners.base import PlannerSettings
-        settings = PlannerSettings(
-            safety_clearance_mm=self.config.safety_clearance_mm,
-            tool_envelope_radius_mm=self.config.tool_envelope_radius_mm
-        )
-        mission_report = validate_continuous_mission(poses, settings)
+        mission_report = validate_continuous_mission(poses, self.config)
         if not result.summary.output_files:
             result.summary.output_files = {}
         result.summary.output_files["mission_validation_report"] = mission_report

@@ -154,6 +154,16 @@ class PipelineConfig:
     orientation_smoothing_maximum_step_deg: float = 5.0
     orientation_interpolation_window_fraction: float = 0.8
 
+    # Free travel path planning and validation parameters
+    free_travel_enabled: bool = True
+    forbidden_region_margin_mm: float = 15.0
+    tool_radius_mm: float = 35.0
+    free_travel_tool_envelope_radius_mm: float = 35.0
+    effective_minimum_clearance_mm: float = 50.0
+    collision_sample_spacing_mm: float = 5.0
+    maximum_curvature_1_per_mm: float = 0.025
+    maximum_control_points: int = 4
+
     def validate(self) -> None:
         if self.planning_mode not in {"simple_view_based", "advanced_face_based"}:
             raise ValueError(f"Unsupported planning mode: {self.planning_mode}.")
@@ -242,3 +252,15 @@ class PipelineConfig:
             raise ValueError("orientation_smoothing.maximum_step_deg must be greater than zero.")
         if not 0.0 < self.orientation_interpolation_window_fraction <= 1.0:
             raise ValueError("orientation_smoothing.interpolation_window_fraction must be in (0, 1].")
+
+        # Validation for free travel parameters
+        if self.forbidden_region_margin_mm < 0.0:
+            raise ValueError("free_travel.forbidden_region_margin_mm must not be negative.")
+        if self.tool_radius_mm <= 0.0:
+            raise ValueError("free_travel.tool_radius_mm must be greater than zero.")
+        if self.collision_sample_spacing_mm <= 0.0:
+            raise ValueError("free_travel.collision_sample_spacing_mm must be greater than zero.")
+        if self.maximum_curvature_1_per_mm <= 0.0:
+            raise ValueError("free_travel.maximum_curvature_1_per_mm must be greater than zero.")
+        if self.maximum_control_points < 2:
+            raise ValueError("free_travel.maximum_control_points must be at least 2.")

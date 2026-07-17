@@ -17,13 +17,15 @@ LAYER_LABELS = {
     "mission_scan": "Scan path",
     "mission_free_travel": "Free-travel path",
     "recovery": "Recovery paths",
-    "safety_envelope": "Safety envelope",
-    "features": "Detected holes",
 }
 
 DEBUG_LAYER_LABELS = {
-    "scanner": "Scanner paths",
+    "nominal": "Nominal planning paths",
+    "scanner": "Scanner planning paths",
+    "transition": "Transition planning paths",
     "focused": "Focused hole orbits",
+    "features": "Detected holes",
+    "safety_envelope": "Safety envelope",
     "mission_complete": "Complete mission",
     "mission_start_end": "Mission start/end",
     "mission_transition_waypoints": "Transition waypoints",
@@ -101,10 +103,8 @@ class ControlsPanel(QtWidgets.QScrollArea):
         form = QtWidgets.QFormLayout(group)
         self.stand_off = self._double_spin(310.0, 1.0, 10000.0)
         self.travel_spacing = self._double_spin(5.0, 0.01, 10000.0)
-        self.laser_width = self._double_spin(200.0, 0.01, 10000.0)
         form.addRow("Stand-off distance (mm)", self.stand_off)
         form.addRow("Travel spacing (mm)", self.travel_spacing)
-        form.addRow("Laser-line width (mm)", self.laser_width)
         layout.addWidget(group)
 
     def _build_coverage_group(self, layout: QtWidgets.QVBoxLayout) -> None:
@@ -115,14 +115,12 @@ class ControlsPanel(QtWidgets.QScrollArea):
         self.isometric_recovery = QtWidgets.QCheckBox("Upper isometric recovery")
         self.bottom_coverage = QtWidgets.QCheckBox("Bottom/underside scan")
         self.enable_hole_recovery = QtWidgets.QCheckBox("Hole recovery")
-        self.enable_focused_hole_orbit = QtWidgets.QCheckBox("Focused hole orbit")
         for widget in (
             self.top_sweep,
             self.side_sweeps,
             self.isometric_recovery,
             self.bottom_coverage,
             self.enable_hole_recovery,
-            self.enable_focused_hole_orbit,
         ):
             widget.setChecked(True)
             group_layout.addWidget(widget)
@@ -141,14 +139,9 @@ class ControlsPanel(QtWidgets.QScrollArea):
         group_layout = QtWidgets.QVBoxLayout(group)
         form = QtWidgets.QFormLayout()
         self.total_target_coverage = self._double_spin(90.0, 0.0, 100.0)
-        self.enable_safe_traverse = QtWidgets.QCheckBox("Enable safe traverse")
-        self.enable_safe_traverse.setChecked(True)
-        self.safety_clearance = self._double_spin(80.0, 20.0, 300.0)
         self.smooth_free_travel = QtWidgets.QCheckBox("Smooth free travel")
         self.smooth_free_travel.setChecked(True)
         form.addRow("Total target coverage (%)", self.total_target_coverage)
-        form.addRow("Enable safe traverse", self.enable_safe_traverse)
-        form.addRow("Safety clearance (mm)", self.safety_clearance)
         form.addRow("Smooth free travel", self.smooth_free_travel)
         group_layout.addLayout(form)
 
@@ -218,18 +211,20 @@ class ControlsPanel(QtWidgets.QScrollArea):
         group = QtWidgets.QGroupBox("Viewer")
         group_layout = QtWidgets.QVBoxLayout(group)
         self.layer_checks: dict[str, QtWidgets.QCheckBox] = {}
+        from gui.viewer_widget import LAYER_DEFAULTS
         for key, label in LAYER_LABELS.items():
             check = QtWidgets.QCheckBox(label)
-            check.setChecked(key in {"cad", "coverage", "mission_scan", "mission_free_travel"})
+            check.setChecked(LAYER_DEFAULTS.get(key, False))
             check.toggled.connect(lambda value, layer=key: self.layer_changed.emit(layer, value))
             self.layer_checks[key] = check
             group_layout.addWidget(check)
         for key, label in DEBUG_LAYER_LABELS.items():
             check = QtWidgets.QCheckBox(label)
-            check.setChecked(False)
+            check.setChecked(LAYER_DEFAULTS.get(key, False))
             check.hide()
             check.toggled.connect(lambda value, layer=key: self.layer_changed.emit(layer, value))
             self.layer_checks[key] = check
+            group_layout.addWidget(check)
         self.fit_cad_button = QtWidgets.QPushButton("Fit CAD")
         self.fit_trajectory_button = QtWidgets.QPushButton("Fit mission")
         self.reset_camera_button = QtWidgets.QPushButton("Reset camera")
@@ -323,6 +318,14 @@ class ControlsPanel(QtWidgets.QScrollArea):
         self.orientation_interpolation_window = self._double_spin(0.8, 0.01, 1.0)
         self.worker_count = self._spin(1)
         self.mesh_tolerance = self._double_spin(0.25, 0.01, 100.0)
+
+        # Hidden/Moved to Advanced settings from main panel
+        self.laser_width = self._double_spin(200.0, 0.01, 10000.0)
+        self.enable_focused_hole_orbit = QtWidgets.QCheckBox()
+        self.enable_focused_hole_orbit.setChecked(True)
+        self.enable_safe_traverse = QtWidgets.QCheckBox()
+        self.enable_safe_traverse.setChecked(True)
+        self.safety_clearance = self._double_spin(80.0, 20.0, 300.0)
 
     def _apply_tooltips(self) -> None:
         mapping = {
@@ -748,3 +751,8 @@ class ControlsPanel(QtWidgets.QScrollArea):
     def set_export_enabled(self, enabled: bool) -> None:
         self.export_csv_button.setEnabled(enabled)
         self.export_json_button.setEnabled(enabled)
+
+    def set_developer_mode(self, enabled: bool) -> None:
+        for key in DEBUG_LAYER_LABELS:
+            if key in self.layer_checks:
+                self.layer_checks[key].setVisible(enabled)

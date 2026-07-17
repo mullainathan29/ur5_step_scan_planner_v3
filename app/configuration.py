@@ -142,6 +142,22 @@ PARAMETERS = {
                           "Draw every Nth scanner coordinate frame in debug viewer mode."),
         ParameterMetadata("viewer.laser_footprint_stride", "laser_footprint_stride", "Laser footprint stride",
                           "Draw every Nth laser footprint in debug viewer mode."),
+        ParameterMetadata("free_travel.enabled", "free_travel_enabled", "Enable free travel",
+                          "Enables collision-free routing and smoothing for free travel.", classification="basic"),
+        ParameterMetadata("free_travel.forbidden_region_margin_mm", "forbidden_region_margin_mm", "Forbidden margin",
+                          "Margin added around the CAD part to form the forbidden region.", "mm"),
+        ParameterMetadata("free_travel.tool_envelope_radius_mm", "free_travel_tool_envelope_radius_mm", "Tool envelope radius",
+                          "Effective radius representing the scanner/tool envelope.", "mm"),
+        ParameterMetadata("free_travel.effective_minimum_clearance_mm", "effective_minimum_clearance_mm", "Effective minimum clearance",
+                          "Effective minimum clearance threshold for mission validation.", "mm"),
+        ParameterMetadata("free_travel.tool_radius_mm", "tool_radius_mm", "Tool radius",
+                          "Effective radius representing the scanner/tool envelope.", "mm"),
+        ParameterMetadata("free_travel.collision_sample_spacing_mm", "collision_sample_spacing_mm", "Collision sample spacing",
+                          "Distance between segment samples for collision/clearance validation of free travel.", "mm"),
+        ParameterMetadata("free_travel.maximum_curvature_1_per_mm", "maximum_curvature_1_per_mm", "Max curvature",
+                          "Maximum allowed curvature for robot-friendly free travel.", "1/mm"),
+        ParameterMetadata("free_travel.maximum_control_points", "maximum_control_points", "Max control points",
+                          "Maximum allowed control points for transition curves."),
     )
 }
 
@@ -252,6 +268,14 @@ PATH_TO_FIELD = {
     "orientation_smoothing.enabled": "orientation_smoothing_enabled",
     "orientation_smoothing.maximum_step_deg": "orientation_smoothing_maximum_step_deg",
     "orientation_smoothing.interpolation_window_fraction": "orientation_interpolation_window_fraction",
+    "free_travel.enabled": "free_travel_enabled",
+    "free_travel.forbidden_region_margin_mm": "forbidden_region_margin_mm",
+    "free_travel.tool_envelope_radius_mm": "free_travel_tool_envelope_radius_mm",
+    "free_travel.effective_minimum_clearance_mm": "effective_minimum_clearance_mm",
+    "free_travel.tool_radius_mm": "tool_radius_mm",
+    "free_travel.collision_sample_spacing_mm": "collision_sample_spacing_mm",
+    "free_travel.maximum_curvature_1_per_mm": "maximum_curvature_1_per_mm",
+    "free_travel.maximum_control_points": "maximum_control_points",
 }
 
 

@@ -191,19 +191,71 @@ def validate_continuous_mission(
                 break
 
     # 8. safety clearance, failed, and collision_checked validations
-    min_req_clearance = settings.safety_clearance_mm + settings.tool_envelope_radius_mm
+    if hasattr(settings, "free_travel_tool_envelope_radius_mm") or hasattr(settings, "forbidden_region_margin_mm") or hasattr(settings, "effective_minimum_clearance_mm"):
+        forbidden_margin = getattr(settings, "forbidden_region_margin_mm", 15.0)
+        tool_rad = getattr(settings, "free_travel_tool_envelope_radius_mm", getattr(settings, "tool_radius_mm", 35.0))
+        min_req_clearance = getattr(settings, "effective_minimum_clearance_mm", tool_rad + forbidden_margin)
+    else:
+        # Legacy fallback
+        min_req_clearance = getattr(settings, "safety_clearance_mm", 80.0) + getattr(settings, "tool_envelope_radius_mm", 60.0)
+        
+    max_curvature_limit = getattr(settings, "maximum_curvature_1_per_mm", 0.025)
+
+    from collections import defaultdict
+    transition_poses = defaultdict(list)
     for p in poses:
-        if p.scan_status == 0:
+        if p.scan_status == 0 and p.transition_id >= 0:
+            transition_poses[p.transition_id].append(p)
+            
+    for tid, tposes in sorted(transition_poses.items()):
+        # Check failed strategy
+        if any(p.transition_strategy == "failed" for p in tposes):
+            reasons.append(f"Transition {tid} enters forbidden region.")
+            continue
+            
+        # Check collision checked
+        if any(not p.collision_checked for p in tposes):
+            reasons.append(f"Transition {tid} has poses that have not been collision checked.")
+            continue
+            
+        # Check CAD / Fixture collision or intersection
+        if any(p.clearance_mm <= 0.0 for p in tposes):
+            reasons.append(f"Transition {tid} intersects CAD mesh.")
+            continue
+            
+        if any("fixture" in getattr(p, "warning_flags", "").lower() for p in tposes):
+            reasons.append(f"Transition {tid} collides with fixture.")
+            continue
+
+        # Check clearance
+        below_clearance_poses = [p for p in tposes if p.clearance_mm < min_req_clearance - 1.0e-3]
+        if below_clearance_poses:
+            min_clear = min(p.clearance_mm for p in below_clearance_poses)
+            reasons.append(
+                f"Transition {tid}:\n"
+                f"- {len(below_clearance_poses)} poses below required clearance;\n"
+                f"- minimum clearance: {min_clear:.1f} mm;\n"
+                f"- required clearance: {min_req_clearance:.1f} mm."
+            )
+            continue
+
+
+    # Also validate transition poses that have transition_id < 0 (if any exist)
+    for p in poses:
+        if p.scan_status == 0 and p.transition_id < 0:
             if p.transition_strategy == "failed":
                 reasons.append(f"Transition strategy failed at global_pose_id {p.global_pose_id}")
-            if not p.collision_checked:
+            elif not p.collision_checked:
                 reasons.append(f"Pose has not been collision checked at global_pose_id {p.global_pose_id}")
-            if p.clearance_mm < min_req_clearance - 1.5:
-                reasons.append(f"Clearance {p.clearance_mm:.2f} mm is below safety envelope {min_req_clearance:.2f} mm at global_pose_id {p.global_pose_id}")
+            elif p.clearance_mm <= 0.0:
+                reasons.append(f"Pose at global_pose_id {p.global_pose_id} intersects CAD mesh.")
+            elif p.clearance_mm < min_req_clearance - 1.0e-3:
+                reasons.append(f"Clearance {p.clearance_mm:.2f} mm is below required effective tool clearance {min_req_clearance:.2f} mm at global_pose_id {p.global_pose_id}")
 
-    # Calculate minimum and average clearances
-    min_clearance = float(min(p.clearance_mm for p in poses)) if poses else 0.0
+    # Calculate clearances
     free_travel_poses = [p for p in poses if p.scan_status == 0]
+    min_clearance = float(min(p.clearance_mm for p in poses)) if poses else 0.0
+    min_clearance_free_travel = float(min(p.clearance_mm for p in free_travel_poses)) if free_travel_poses else 0.0
     avg_clearance = float(np.mean([p.clearance_mm for p in free_travel_poses])) if free_travel_poses else 0.0
 
     # Calculate additional safe routing distance compared with unsafe direct routing
@@ -232,5 +284,8 @@ def validate_continuous_mission(
         "minimum_mission_clearance": min_clearance,
         "average_transition_clearance": avg_clearance,
         "additional_safe_routing_distance": additional_safe_dist,
+        "raw_distance_to_cad": min_clearance_free_travel,
+        "effective_required_clearance": min_req_clearance,
+        "remaining_clearance_margin": max(0.0, min_clearance_free_travel - min_req_clearance) if free_travel_poses else 0.0,
     }
     return report
