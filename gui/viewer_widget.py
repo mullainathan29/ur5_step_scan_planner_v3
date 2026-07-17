@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import pyvista as pv
+from trimesh import proximity
 from pyvistaqt import QtInteractor
 from PySide6 import QtWidgets
 from scipy.spatial.transform import Rotation
@@ -464,7 +465,7 @@ class ViewerWidget(QtWidgets.QWidget):
             if free_poses:
                 min_pose = min(free_poses, key=lambda p: p.clearance_mm)
                 p_pos = np.asarray(min_pose.position)
-                closest_pts, _, _ = trimesh.proximity.closest_point(model.validation_mesh.mesh, np.array([p_pos]))
+                closest_pts, _, _ = proximity.closest_point(model.validation_mesh.mesh, np.array([p_pos]))
                 c_pt = closest_pts[0]
                 
                 clearance_line = _line_polydata([(p_pos, c_pt)])
